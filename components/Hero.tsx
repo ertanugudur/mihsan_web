@@ -13,7 +13,7 @@ const layers = [
   { id: "bot", title: "İç yüzey", text: "Ürüne temas eden, oluğu yerinde tutan kâğıt.", short: "Ürüne temas eder, oluğu tutar." },
 ] as const;
 
-// Mobil etiketlerin katmana göre yerleşimi
+// Etiketlerin katmana göre tercih edilen yerleşimi
 const placement = ["above", "side", "below"] as const;
 const GAP = 16; // ok ucu ile katman arası
 const EDGE = 14; // ekran kenarı boşluğu
@@ -21,17 +21,11 @@ const EDGE = 14; // ekran kenarı boşluğu
 export default function Hero() {
   const section = useRef<HTMLElement>(null);
   const sticky = useRef<HTMLDivElement>(null);
-  const pins = useRef<(HTMLDivElement | null)[]>([]);
+  const pins = useRef<(HTMLLIElement | null)[]>([]);
   const progress = useRef(0);
-  const mobile = useRef(false);
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 860px)");
-    const sync = () => (mobile.current = mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-
     const onScroll = () => {
       const el = section.current;
       if (!el) return;
@@ -39,21 +33,20 @@ export default function Hero() {
       const travel = el.offsetHeight - window.innerHeight;
       const v = Math.min(1, Math.max(0, -r.top / Math.max(travel, 1)));
       progress.current = v;
-      setPhase(v < TIMELINE.zoom[0] - 0.02 ? 0 : v < TIMELINE.split[0] + 0.1 ? 1 : 2);
+      setPhase(v < TIMELINE.focus[0] - 0.02 ? 0 : v < TIMELINE.labels ? 1 : 2);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
-      mq.removeEventListener("change", sync);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
   }, []);
 
-  // 3D katman konumlarını ekrandaki etiketlere aktar (yalnızca mobil)
+  // 3D katman konumlarını ekrandaki etiketlere aktar
   const onFrame = useCallback((anchors: Anchor[], canvas: HTMLCanvasElement) => {
-    if (!mobile.current || !sticky.current) return;
+    if (!sticky.current) return;
     const box = sticky.current.getBoundingClientRect();
     const cv = canvas.getBoundingClientRect();
     const ox = cv.left - box.left;
@@ -72,6 +65,8 @@ export default function Hero() {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
       let place: string = placement[i];
+      // dar ekranda oluk kartı iki katmanın arasına girer
+      if (W < 700 && i === 1) place = "above";
       // dikeyde sığmıyorsa yana geç
       if (place === "above" && ay - h - GAP < topLimit) place = "side";
       if (place === "below" && ay + GAP + h > botLimit) place = "side";
@@ -112,20 +107,10 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* masaüstü: modelin solunda liste */}
-        <ol className="hero__layers" aria-label="Oluklu kartonun katmanları">
-          {layers.map((l) => (
-            <li key={l.id} className={`hero__layer hero__layer--${l.id}`}>
-              <span className="hero__layer-title">{l.title}</span>
-              <span className="hero__layer-text">{l.text}</span>
-            </li>
-          ))}
-        </ol>
-
-        {/* mobil: her katmana okla işaret eden etiketler */}
-        <div className="hero__pins" aria-hidden="true">
+        {/* her katmana okla işaret eden etiketler */}
+        <ol className="hero__pins" aria-label="Oluklu kartonun katmanları">
           {layers.map((l, i) => (
-            <div
+            <li
               key={l.id}
               ref={(el) => {
                 pins.current[i] = el;
@@ -135,11 +120,12 @@ export default function Hero() {
             >
               <div className="pin__card">
                 <span className="pin__title">{l.title}</span>
-                <span className="pin__text">{l.short}</span>
+                <span className="pin__text pin__text--long">{l.text}</span>
+                <span className="pin__text pin__text--short">{l.short}</span>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
 
         <p className="hero__hint" aria-hidden="true">Kaydırın, koliyi açalım</p>
       </div>

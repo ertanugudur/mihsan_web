@@ -3,37 +3,49 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { makeKraft, withRepeat } from "./kraftTexture";
 
 export type Anchor = { x: number; y: number };
 
 /** Scroll zaman çizelgesi (0–1) */
 export const TIMELINE = {
-  longFlaps: [0.06, 0.3],
-  shortFlaps: [0.18, 0.42],
-  zoom: [0.44, 0.68],
-  split: [0.68, 0.9],
+  longFlaps: [0.04, 0.24],
+  shortFlaps: [0.14, 0.34],
+  focus: [0.38, 0.64], // ön kapak ortaya gelir, gerisi kaybolur
+  split: [0.66, 0.88], // kapak 3 katmana ayrılır
+  labels: 0.8,
 } as const;
 
 type Props = {
   progress: React.MutableRefObject<number>;
-  /** Her karede ayrılan katmanların ekran konumları (canvas'a göre px): dış, oluk, iç */
+  /** Her karede katmanların ekran konumları (canvas'a göre px): dış, oluk, iç */
   onFrame?: (anchors: Anchor[], canvas: HTMLCanvasElement) => void;
 };
 
 // ---------- koli ölçüleri
-const L = 4.2; // en
-const H = 2.7; // yükseklik
-const Wd = 3.0; // boy
+const L = 4.2; // en (x)
+const H = 2.7; // gövde yüksekliği (y)
+const Wd = 3.0; // boy (z)
 const T = 0.09; // mukavva kalınlığı
+const FLAP = Wd / 2; // kapak boyu
 
-// ---------- detay panosu (kapak kesiti) ölçüleri
-const BW = 6.4;
-const BD = 4.2;
+// ---------- renkler (düz kraft)
+const C = {
+  outer: 0xb5824d,
+  inner: 0xa97845,
+  edge: 0xcaa275,
+  flute: 0xbb8d5a,
+  innerLiner: 0xa3733f,
+};
+
+// ---------- ön kapağın oluklu yapısı (detay ölçeğinde kurulur, kapağa ölçeklenir)
+const BW = 6.4; // kapak eni
+const BD = (BW * FLAP) / L; // kapak boyu, gerçek oranla
 const PERIOD = 0.58;
 const AMP = 0.3;
 const SHEET = 0.045;
 const LINER = 0.07;
+const REST = AMP + SHEET / 2 + LINER / 2; // liner merkezlerinin kapalı konumu
+const THICK = 2 * REST + LINER; // detay kalınlığı
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const seg = (v: number, [a, b]: readonly [number, number]) => clamp01((v - a) / (b - a));
@@ -60,38 +72,41 @@ function fluteGeometry() {
   return geo;
 }
 
-/** Kraft dokusunun üzerine flekso baskı gibi logo basar */
-function printTexture(kraft: HTMLCanvasElement, aspect: number, logo: HTMLImageElement | null, logoWidth: number) {
+/** Düz kraft zemine flekso baskı gibi logo */
+function printTexture(aspect: number, logo: HTMLImageElement | null) {
   const w = 1024;
   const h = Math.round(w / aspect);
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
   const g = c.getContext("2d")!;
-  g.drawImage(kraft, 0, 0, kraft.width, Math.min(kraft.height, kraft.width / aspect), 0, 0, w, h);
+  g.fillStyle = "#b5824d";
+  g.fillRect(0, 0, w, h);
   if (logo && logo.naturalWidth) {
-    const lw = w * logoWidth;
+    const lw = w * 0.6;
     const lh = (lw * logo.naturalHeight) / logo.naturalWidth;
-    // logoyu tek renk mürekkebe çevir
     const ink = document.createElement("canvas");
     ink.width = Math.round(lw);
     ink.height = Math.round(lh);
     const ig = ink.getContext("2d")!;
     ig.drawImage(logo, 0, 0, lw, lh);
     ig.globalCompositeOperation = "source-in";
-    ig.fillStyle = "rgb(34,24,15)";
+    ig.fillStyle = "rgb(36,25,15)";
     ig.fillRect(0, 0, lw, lh);
-    g.globalAlpha = 0.86;
-    g.globalCompositeOperation = "multiply";
-    g.drawImage(ink, (w - lw) / 2, (h - lh) / 2 - h * 0.03);
-    // mürekkebin kâğıda işlemesi: lif dokusunu biraz geri getir
-    g.globalCompositeOperation = "soft-light";
-    g.globalAlpha = 0.35;
-    g.drawImage(kraft, 0, 0, w, h);
+    g.globalAlpha = 0.88;
+    g.drawImage(ink, (w - lw) / 2, (h - lh) / 2);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
   return tex;
+}
+
+/** Yerel aralıklarla kutu geometrisi: x0..x1, y0..y1, z0..z1 */
+function slab(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
+  const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+  g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  return g;
 }
 
 export default function BoardScene({ progress, onFrame }: Props) {
@@ -108,7 +123,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.95;
+    renderer.toneMappingExposure = 0.98;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     el.appendChild(renderer.domElement);
@@ -120,15 +135,16 @@ export default function BoardScene({ progress, onFrame }: Props) {
     scene.environmentIntensity = 0.3;
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-    camera.position.set(0, 0.6, 15);
+    camera.position.set(0, 0.4, 15);
+    camera.lookAt(0, 0, 0);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfc2, 0.7));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfc2, 0.75));
     const key = new THREE.DirectionalLight(0xfff6ea, 2.6);
     key.position.set(5, 10, 7);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.left = key.shadow.camera.bottom = -7;
-    key.shadow.camera.right = key.shadow.camera.top = 7;
+    key.shadow.camera.left = key.shadow.camera.bottom = -8;
+    key.shadow.camera.right = key.shadow.camera.top = 8;
     key.shadow.radius = 5;
     key.shadow.bias = -0.0008;
     scene.add(key);
@@ -136,147 +152,143 @@ export default function BoardScene({ progress, onFrame }: Props) {
     rim.position.set(-6, -2, -4);
     scene.add(rim);
 
-    const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-
-    // ---------- dokular
-    const outerTex = makeKraft(1024, { base: [176, 126, 74], spread: 28 }, 11);
-    const innerTex = makeKraft(512, { base: [160, 114, 66], spread: 22 }, 23);
-    const fluteTex = makeKraft(512, { base: [168, 118, 68], spread: 24 }, 37);
-    const botTex = makeKraft(1024, { base: [150, 104, 60], spread: 26 }, 41);
-
+    // ---------- malzemeler
     const all: THREE.MeshStandardMaterial[] = [];
-    const mat = (t: { map: THREE.Texture; bumpMap: THREE.Texture } | null, rough: number, color?: number) => {
-      const m = new THREE.MeshStandardMaterial({
-        map: t?.map ?? null,
-        bumpMap: t?.bumpMap ?? null,
-        bumpScale: 1.2,
-        roughness: rough,
-        metalness: 0,
-        color: color ?? 0xffffff,
-      });
+    const mat = (color: number, rough = 0.86) => {
+      const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0 });
       all.push(m);
       return m;
     };
-
-    // koli malzemeleri
-    const wallOuter = mat(withRepeat(outerTex, L / 4, H / 4, aniso), 0.92);
-    const sideOuter = mat(withRepeat(outerTex, Wd / 4, H / 4, aniso), 0.92);
-    const inner = mat(withRepeat(innerTex, 1, 1, aniso), 0.95, 0xe6ddd2);
-    const edge = mat(withRepeat(fluteTex, 0.2, 0.2, aniso), 0.95, 0xd8c8b4);
-    const flapLongOuter = mat(withRepeat(outerTex, L / 4, Wd / 8, aniso), 0.92);
-    const flapShortOuter = mat(withRepeat(outerTex, Wd / 8, Wd / 4, aniso), 0.92);
-    const frontPrint = mat(null, 0.9);
-    frontPrint.bumpMap = outerTex.bumpMap;
-    frontPrint.bumpScale = 1.2;
-    const sidePrint = mat(null, 0.9);
-    sidePrint.bumpMap = outerTex.bumpMap;
-    sidePrint.bumpScale = 1.2;
-    frontPrint.map = printTexture(outerTex.map.image as HTMLCanvasElement, L / H, null, 0);
-    sidePrint.map = printTexture(outerTex.map.image as HTMLCanvasElement, Wd / H, null, 0);
+    const outer = mat(C.outer);
+    const inner = mat(C.inner, 0.9);
+    const edge = mat(C.edge, 0.9);
+    const print = mat(0xffffff);
+    print.map = printTexture(L / H, null);
 
     const logo = new Image();
     logo.src = "/logo/mihsan-logo-dark.png";
     logo.onload = () => {
-      frontPrint.map?.dispose();
-      sidePrint.map?.dispose();
-      frontPrint.map = printTexture(outerTex.map.image as HTMLCanvasElement, L / H, logo, 0.62);
-      sidePrint.map = printTexture(outerTex.map.image as HTMLCanvasElement, Wd / H, logo, 0.5);
-      frontPrint.needsUpdate = sidePrint.needsUpdate = true;
+      print.map?.dispose();
+      print.map = printTexture(L / H, logo);
+      print.needsUpdate = true;
     };
 
-    // ---------- koli
+    // ---------- koli gövdesi (soluklaşacak parçalar)
     const box = new THREE.Group();
-    const boxMeshes: THREE.Mesh[] = [];
-    const add = (geo: THREE.BufferGeometry, mats: THREE.Material | THREE.Material[], parent: THREE.Object3D, pos: [number, number, number]) => {
+    scene.add(box);
+    const fading: THREE.Mesh[] = [];
+    const add = (geo: THREE.BufferGeometry, mats: THREE.Material | THREE.Material[], parent: THREE.Object3D) => {
       const m = new THREE.Mesh(geo, mats);
-      m.position.set(...pos);
       m.castShadow = m.receiveShadow = true;
       parent.add(m);
-      boxMeshes.push(m);
+      fading.push(m);
       return m;
     };
     // BoxGeometry yüz sırası: +x, -x, +y, -y, +z, -z
-    add(new THREE.BoxGeometry(L, H, T), [edge, edge, edge, edge, frontPrint, inner], box, [0, 0, Wd / 2 - T / 2]);
-    add(new THREE.BoxGeometry(L, H, T), [edge, edge, edge, edge, inner, wallOuter], box, [0, 0, -(Wd / 2 - T / 2)]);
-    add(new THREE.BoxGeometry(T, H, Wd - 2 * T), [sidePrint, inner, edge, edge, edge, edge], box, [L / 2 - T / 2, 0, 0]);
-    add(new THREE.BoxGeometry(T, H, Wd - 2 * T), [inner, sideOuter, edge, edge, edge, edge], box, [-(L / 2 - T / 2), 0, 0]);
-    add(new THREE.BoxGeometry(L - 2 * T, T, Wd - 2 * T), [edge, edge, inner, wallOuter, edge, edge], box, [0, -H / 2 + T / 2, 0]);
+    const top = H / 2 + T; // uzun kenar duvarları kısa kapakları da örter
+    add(slab(-L / 2, L / 2, -H / 2, top, Wd / 2 - T, Wd / 2), [edge, edge, edge, edge, print, inner], box); // ön
+    add(slab(-L / 2, L / 2, -H / 2, top, -Wd / 2, -Wd / 2 + T), [edge, edge, edge, edge, inner, outer], box); // arka
+    add(slab(L / 2 - T, L / 2, -H / 2, H / 2, -Wd / 2 + T, Wd / 2 - T), [outer, inner, edge, edge, edge, edge], box); // sağ
+    add(slab(-L / 2, -L / 2 + T, -H / 2, H / 2, -Wd / 2 + T, Wd / 2 - T), [inner, outer, edge, edge, edge, edge], box); // sol
+    add(slab(-L / 2 + T, L / 2 - T, -H / 2, -H / 2 + T, -Wd / 2 + T, Wd / 2 - T), [edge, edge, inner, outer, edge, edge], box); // taban
 
-    const pivot = (pos: [number, number, number]) => {
+    // kapaklar: menteşe = duvarın üst dış kenarı; kapalıyken dış yüz yukarıda
+    const hinge = (pos: [number, number, number]) => {
       const g = new THREE.Group();
       g.position.set(...pos);
       box.add(g);
       return g;
     };
-    const flapMats = (outer: THREE.Material) => [edge, edge, outer, inner, edge, edge];
-    const frontFlap = pivot([0, H / 2, Wd / 2 - T / 2]);
-    add(new THREE.BoxGeometry(L, T, Wd / 2), flapMats(flapLongOuter), frontFlap, [0, T * 1.5, -Wd / 4]);
-    const backFlap = pivot([0, H / 2, -(Wd / 2 - T / 2)]);
-    add(new THREE.BoxGeometry(L, T, Wd / 2), flapMats(flapLongOuter), backFlap, [0, T * 1.5, Wd / 4]);
-    const rightFlap = pivot([L / 2 - T / 2, H / 2, 0]);
-    add(new THREE.BoxGeometry(Wd / 2, T, Wd - 2 * T), flapMats(flapShortOuter), rightFlap, [-Wd / 4, T / 2, 0]);
-    const leftFlap = pivot([-(L / 2 - T / 2), H / 2, 0]);
-    add(new THREE.BoxGeometry(Wd / 2, T, Wd - 2 * T), flapMats(flapShortOuter), leftFlap, [Wd / 4, T / 2, 0]);
+    const flapMats = [edge, edge, outer, inner, edge, edge];
+    const SEAM = 0.012; // uzun kapakların ortada birleştiği ince çizgi
+    const frontHinge = hinge([0, top, Wd / 2]);
+    const backHinge = hinge([0, top, -Wd / 2]);
+    add(slab(-L / 2, L / 2, -T, 0, 0, FLAP - SEAM), flapMats, backHinge);
+    const rightHinge = hinge([L / 2, H / 2, 0]);
+    add(slab(-FLAP, 0, -T, 0, -Wd / 2 + T, Wd / 2 - T), flapMats, rightHinge);
+    const leftHinge = hinge([-L / 2, H / 2, 0]);
+    add(slab(0, FLAP, -T, 0, -Wd / 2 + T, Wd / 2 - T), flapMats, leftHinge);
 
-    // zemindeki yumuşak gölge
+    // ön kapağın koli üzerindeki yeri (ölçek ve yön kaynağı)
+    const frontSlot = new THREE.Object3D();
+    frontSlot.position.set(0, -T / 2, -(FLAP - SEAM) / 2);
+    frontHinge.add(frontSlot);
+
+    // zemin gölgesi
     const shadowMat = new THREE.ShadowMaterial({ opacity: 0.16, transparent: true });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), shadowMat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), shadowMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -H / 2 - 0.001;
     ground.receiveShadow = true;
     box.add(ground);
-    scene.add(box);
 
-    // ---------- detay: kapağın oluklu kesiti
-    const topMat = mat(withRepeat(outerTex, 1.6, 1.05, aniso), 0.93);
-    const botMat = mat(withRepeat(botTex, 1.6, 1.05, aniso), 0.95);
-    const fluteMat = mat(withRepeat(fluteTex, 0.25, 0.25, aniso), 0.9);
+    // ---------- ön kapak: dış kâğıt + oluk + iç kâğıt (hiç soluklaşmaz)
+    const flap = new THREE.Group();
+    flap.matrixAutoUpdate = false;
+    scene.add(flap);
+    const fluteMat = mat(C.flute);
     fluteMat.side = THREE.DoubleSide;
-
-    const board = new THREE.Group();
-    const flute = new THREE.Mesh(fluteGeometry(), fluteMat);
     const linerGeo = new THREE.BoxGeometry(BW, LINER, BD);
-    const topLiner = new THREE.Mesh(linerGeo, topMat);
-    const bottomLiner = new THREE.Mesh(linerGeo, botMat);
-    for (const m of [flute, topLiner, bottomLiner]) m.castShadow = m.receiveShadow = true;
-    const restY = AMP + SHEET / 2 + LINER / 2;
-    board.add(flute, topLiner, bottomLiner);
-    board.visible = false;
-    scene.add(board);
+    const outerLiner = new THREE.Mesh(linerGeo, [edge, edge, outer, outer, edge, edge]);
+    const fluteMesh = new THREE.Mesh(fluteGeometry(), fluteMat);
+    const innerLiner = new THREE.Mesh(linerGeo, [edge, edge, mat(C.innerLiner), mat(C.innerLiner), edge, edge]);
+    for (const m of [outerLiner, fluteMesh, innerLiner]) {
+      m.castShadow = m.receiveShadow = true;
+      flap.add(m);
+    }
 
-    const boxMats = [wallOuter, sideOuter, inner, edge, flapLongOuter, flapShortOuter, frontPrint, sidePrint];
-    const boardMats = [topMat, botMat, fluteMat];
-    const setOpacity = (mats: THREE.MeshStandardMaterial[], o: number) => {
+    const fadeMats = [outer, inner, edge, print];
+    const setBoxOpacity = (o: number) => {
       const tr = o < 0.999;
-      for (const m of mats) {
+      for (const m of fadeMats) {
         if (m.transparent !== tr) {
           m.transparent = tr;
           m.needsUpdate = true;
         }
         m.opacity = o;
-        m.depthWrite = !tr || o > 0.6;
+        m.depthWrite = !tr;
       }
+      shadowMat.opacity = 0.16 * o;
+      for (const m of fading) m.visible = o > 0.01;
     };
+    // kapağın kendi malzemeleri soluklaşmamalı: aynı malzemeyi paylaşanları ayır
+    const flapOuter = outer.clone();
+    const flapEdge = edge.clone();
+    all.push(flapOuter, flapEdge);
+    outerLiner.material = [flapEdge, flapEdge, flapOuter, flapOuter, flapEdge, flapEdge];
+    (innerLiner.material as THREE.Material[]).splice(0, 2, flapEdge, flapEdge);
+    (innerLiner.material as THREE.Material[]).splice(4, 2, flapEdge, flapEdge);
 
-    // katmanlara işaret noktaları
+    // katmanlara işaret noktaları (kapak yerel koordinatı)
     const anchorLocal = [
-      () => new THREE.Vector3(0.6, topLiner.position.y + LINER / 2, 0.4),
-      () => new THREE.Vector3(-BW * 0.18, 0, BD / 2),
-      () => new THREE.Vector3(BW * 0.18, bottomLiner.position.y - LINER / 2, BD / 2),
+      () => new THREE.Vector3(BW * 0.12, outerLiner.position.y + LINER / 2, BD * 0.1),
+      () => new THREE.Vector3(-BW * 0.2, 0, BD / 2),
+      () => new THREE.Vector3(BW * 0.18, innerLiner.position.y - LINER / 2, BD / 2),
     ];
     const anchors: Anchor[] = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }];
     const v = new THREE.Vector3();
 
-    let narrow = false;
+    // ---------- ekran düzeni
     let aspect = 1;
+    let boxX = 0;
+    let boxY = 0;
+    let boxScale = 1;
+    let flapScale = 1;
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = el;
       renderer.setSize(w, h, false);
-      camera.aspect = w / h;
       aspect = w / h;
-      narrow = aspect < 0.9;
-      camera.position.z = narrow ? 21 : w / h < 1.3 ? 17 : 15;
+      camera.aspect = aspect;
+      const narrow = aspect < 0.9;
+      camera.position.z = narrow ? 21 : aspect < 1.3 ? 17 : 15;
+      camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
+      // kapalı koli: masaüstünde metnin sağında, dar ekranda metnin altında
+      boxX = aspect > 1.3 ? 2.5 : aspect > 0.9 ? 1.6 : 0;
+      boxY = narrow ? -2.0 : -0.2;
+      boxScale = narrow ? Math.min(0.8, aspect * 1.25) : aspect > 1.3 ? 1 : 0.85;
+      // ayrılmış kapak her ekranda ortada ve sığacak boyutta
+      flapScale = Math.min(1, aspect * 1.45) * (aspect > 1.3 ? 0.95 : 1);
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -293,6 +305,17 @@ export default function BoardScene({ progress, onFrame }: Props) {
     const io = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting));
     io.observe(el);
 
+    // geçiş hesapları için geçici nesneler
+    const sPos = new THREE.Vector3();
+    const sQuat = new THREE.Quaternion();
+    const sScl = new THREE.Vector3();
+    const ePos = new THREE.Vector3();
+    const eQuat = new THREE.Quaternion();
+    const eScl = new THREE.Vector3();
+    const euler = new THREE.Euler();
+    const slotScale = new THREE.Vector3(L / BW, T / THICK, (FLAP - SEAM) / BD);
+    const tmpM = new THREE.Matrix4();
+
     let raf = 0;
     let p = 0;
     let px = 0;
@@ -306,53 +329,63 @@ export default function BoardScene({ progress, onFrame }: Props) {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const t = (now - t0) / 1000;
-      // kare hızından bağımsız yumuşak takip
-      const k = 1 - Math.exp(-dt * 4.5);
-      p += (progress.current - p) * k;
+      p += (progress.current - p) * (1 - Math.exp(-dt * 4.5));
       px += (pointer.x - px) * (1 - Math.exp(-dt * 3));
       py += (pointer.y - py) * (1 - Math.exp(-dt * 3));
       const idle = reduce ? 0 : Math.sin(t * 0.35);
+      const bob = reduce ? 0 : Math.sin(t * 0.8) * 0.04;
 
       const a = smooth(seg(p, TIMELINE.longFlaps));
       const b = smooth(seg(p, TIMELINE.shortFlaps));
-      const z = smooth(seg(p, TIMELINE.zoom));
+      const f = smooth(seg(p, TIMELINE.focus));
       const s = smooth(seg(p, TIMELINE.split));
 
-      // --- koli: kapaklar açılır
-      frontFlap.rotation.x = a * 3.35;
-      backFlap.rotation.x = -a * 3.35;
-      rightFlap.rotation.z = -b * 3.25;
-      leftFlap.rotation.z = b * 3.25;
+      // --- koli: kapaklar menteşelerinden açılır
+      frontHinge.rotation.x = a * 3.4;
+      backHinge.rotation.x = -a * 3.4;
+      rightHinge.rotation.z = -b * 3.3;
+      leftHinge.rotation.z = b * 3.3;
 
-      const boxScale = narrow ? Math.min(0.82, aspect * 1.25) : 1;
-      const restBoxY = narrow ? -1.7 : -0.15;
-      box.scale.setScalar(boxScale * (1 + z * z * 2.4));
-      box.rotation.set(0.42 + a * 0.18 + py * 0.06 - z * 0.25, -0.62 + idle * 0.1 + px * 0.12 + z * 0.35, 0);
-      box.position.set(0, restBoxY * (1 - z) + (reduce ? 0 : Math.sin(t * 0.8) * 0.04) + z * 1.2, z * 6);
-      const boxO = 1 - smooth(clamp01((z - 0.45) / 0.3));
-      box.visible = boxO > 0.01;
-      setOpacity(boxMats, boxO);
-      shadowMat.opacity = 0.16 * boxO;
+      // koli odak sırasında hafifçe geri çekilir ve kaybolur
+      box.scale.setScalar(boxScale * (1 - f * 0.12));
+      box.rotation.set(0.42 + a * 0.12 + py * 0.05, -0.62 + idle * 0.1 + px * 0.1, 0);
+      box.position.set(boxX * (1 - b * 0.55) * (1 - f * 0.3), boxY * (1 - b * 0.35) + bob - f * 0.6, -f * 1.5);
+      box.updateMatrixWorld(true);
+      setBoxOpacity(1 - smooth(clamp01((f - 0.05) / 0.6)));
 
-      // --- kapak kesiti: zoom sonunda belirir, sonra katmanlar ayrılır
-      const boardO = smooth(clamp01((z - 0.6) / 0.4));
-      board.visible = boardO > 0.01;
-      setOpacity(boardMats, boardO);
-      board.scale.setScalar((0.6 + 0.4 * z) * Math.min(1, aspect * 1.45));
-      board.position.set(0, (reduce ? 0 : Math.sin(t * 0.8) * 0.05), (1 - z) * -3);
-      const gap = s * 1.25;
-      topLiner.position.y = restY + gap;
-      bottomLiner.position.y = -restY - gap;
-      board.rotation.set(0.62 - s * 0.42 + py * 0.08, -0.7 + s * 0.48 + idle * 0.12 + px * 0.12, -0.04);
+      // --- ön kapak: koli üzerindeki yerinden ekranın ortasına
+      frontSlot.updateWorldMatrix(true, false);
+      frontSlot.matrixWorld.decompose(sPos, sQuat, sScl);
+      sScl.multiply(slotScale);
+
+      ePos.set(0, bob * 1.2, 0);
+      euler.set(0.58 - s * 0.36 + py * 0.06, -0.62 + s * 0.42 + idle * 0.1 + px * 0.1, -0.04);
+      eQuat.setFromEuler(euler);
+      eScl.setScalar(flapScale);
+
+      // kapak önce menteşeden kalkar, sonra ortaya süzülür
+      const fe = smooth(f);
+      const pos = sPos.clone().lerp(ePos, fe);
+      pos.y += Math.sin(fe * Math.PI) * 0.8; // hafif yay çizerek gelsin
+      const quat = sQuat.clone().slerp(eQuat, fe);
+      const scl = sScl.clone().lerp(eScl, fe);
+      tmpM.compose(pos, quat, scl);
+      flap.matrix.copy(tmpM);
+      flap.matrixWorldNeedsUpdate = true;
+
+      // --- katmanlar ayrılır
+      const gap = s * (aspect < 0.9 ? 2.1 : 1.25);
+      outerLiner.position.y = REST + gap;
+      innerLiner.position.y = -REST - gap;
 
       renderer.render(scene, camera);
 
       if (frameCb.current) {
-        board.updateMatrixWorld();
+        flap.updateMatrixWorld(true);
         const w = el.clientWidth;
         const h = el.clientHeight;
         anchorLocal.forEach((fn, i) => {
-          v.copy(fn()).applyMatrix4(board.matrixWorld).project(camera);
+          v.copy(fn()).applyMatrix4(flap.matrixWorld).project(camera);
           anchors[i].x = ((v.x + 1) / 2) * w;
           anchors[i].y = ((1 - v.y) / 2) * h;
         });
@@ -370,17 +403,13 @@ export default function BoardScene({ progress, onFrame }: Props) {
         m.map?.dispose();
         m.dispose();
       });
-      [outerTex, innerTex, fluteTex, botTex].forEach((tx) => {
-        tx.map.dispose();
-        tx.bumpMap.dispose();
-      });
-      boxMeshes.forEach((m) => m.geometry.dispose());
+      fading.forEach((m) => m.geometry.dispose());
       ground.geometry.dispose();
       shadowMat.dispose();
+      fluteMesh.geometry.dispose();
+      linerGeo.dispose();
       envTex.dispose();
       pmrem.dispose();
-      flute.geometry.dispose();
-      linerGeo.dispose();
       renderer.dispose();
       el.removeChild(renderer.domElement);
     };

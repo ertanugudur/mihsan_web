@@ -45,7 +45,7 @@ export default function FooterWord() {
         if (!el) return;
         const local = Math.min(1, Math.max(0, (shown - i * STAG) / DUR));
         const e = 1 - Math.pow(1 - local, 3);
-        el.style.transform = `translate3d(0, ${((1 - e) * 105).toFixed(2)}%, 0) rotate(${((1 - e) * 9).toFixed(2)}deg)`;
+        el.style.transform = `translate3d(0, ${((1 - e) * 150).toFixed(2)}%, 0) rotate(${((1 - e) * 9).toFixed(2)}deg)`;
         el.style.opacity = String(0.1 + e * 0.9);
       });
     };
