@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { nav, site } from "@/lib/site";
+import FooterWord from "./FooterWord";
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -21,10 +22,7 @@ export default function Footer() {
             {site.instagram && <a href={site.instagram} target="_blank" rel="noopener">Instagram</a>}
           </nav>
         </div>
-        <p className="footer__giant" aria-hidden="true">
-          <span>mihsan</span>
-          <span>ambalaj</span>
-        </p>
+        <FooterWord />
         <div className="footer__bottom">
           <span>© {year} Mihsan Ambalaj</span>
           <span>Karton kutu, köşebent ve ondüle</span>

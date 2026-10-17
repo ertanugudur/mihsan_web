@@ -2,22 +2,28 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { makeKraft, withRepeat } from "./kraftTexture";
+
+export type Anchor = { x: number; y: number };
 
 type Props = {
   /** 0 → kapalı pano, 1 → katmanlar ayrılmış */
   progress: React.MutableRefObject<number>;
+  /** Her karede katmanların ekran konumlarını (canvas'a göre px) bildirir: üst, oluk, alt */
+  onFrame?: (anchors: Anchor[], canvas: HTMLCanvasElement) => void;
 };
 
 const W = 6.4; // panel genişliği (dalga yönü)
 const D = 4.2; // panel derinliği
 const PERIOD = 0.58;
 const AMP = 0.3;
-const SHEET = 0.05;
+const SHEET = 0.045;
 const LINER = 0.07;
 
 function fluteGeometry() {
   const shape = new THREE.Shape();
-  const steps = 360;
+  const steps = 420;
   const top: THREE.Vector2[] = [];
   const bottom: THREE.Vector2[] = [];
   for (let i = 0; i <= steps; i++) {
@@ -36,8 +42,10 @@ function fluteGeometry() {
   return geo;
 }
 
-export default function BoardScene({ progress }: Props) {
+export default function BoardScene({ progress, onFrame }: Props) {
   const mount = useRef<HTMLDivElement>(null);
+  const frameCb = useRef(onFrame);
+  frameCb.current = onFrame;
 
   useEffect(() => {
     const el = mount.current;
@@ -48,41 +56,85 @@ export default function BoardScene({ progress }: Props) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 0.92;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = envTex;
+    scene.environmentIntensity = 0.3;
+
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
     camera.position.set(0, 0.6, 15);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xcfc6ba, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
-    key.position.set(4, 8, 6);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfc2, 0.7));
+    const key = new THREE.DirectionalLight(0xfff6ea, 2.6);
+    key.position.set(5, 9, 7);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.camera.left = key.shadow.camera.bottom = -6;
+    key.shadow.camera.right = key.shadow.camera.top = 6;
+    key.shadow.radius = 4;
+    key.shadow.bias = -0.0008;
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xffe2c0, 0.9);
+    const rim = new THREE.DirectionalLight(0xffe2c0, 0.8);
     rim.position.set(-6, -2, -4);
     scene.add(rim);
 
-    const kraft = (hex: number, rough = 0.85) =>
-      new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: 0 });
+    // --- dokular
+    const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    const topTex = makeKraft(1024, { base: [178, 128, 76], spread: 30 }, 11);
+    const botTex = makeKraft(1024, { base: [150, 104, 60], spread: 26 }, 23);
+    const fluteTex = makeKraft(512, { base: [168, 118, 68], spread: 24 }, 37);
+
+    const paper = (t: { map: THREE.Texture; bumpMap: THREE.Texture }, rough: number) =>
+      new THREE.MeshStandardMaterial({
+        map: t.map,
+        bumpMap: t.bumpMap,
+        bumpScale: 1.2,
+        roughness: rough,
+        metalness: 0,
+      });
+
+    const topMat = paper(withRepeat(topTex, 1.6, 1.05, aniso), 0.93);
+    const botMat = paper(withRepeat(botTex, 1.6, 1.05, aniso), 0.95);
+    // ExtrudeGeometry UV'leri dünya biriminde: 1 doku ≈ 4 birim
+    const fluteMat = paper(withRepeat(fluteTex, 0.25, 0.25, aniso), 0.9);
+    fluteMat.side = THREE.DoubleSide;
 
     const board = new THREE.Group();
-    const flute = new THREE.Mesh(fluteGeometry(), kraft(0xb07d46));
+    const flute = new THREE.Mesh(fluteGeometry(), fluteMat);
     const linerGeo = new THREE.BoxGeometry(W, LINER, D);
-    const topLiner = new THREE.Mesh(linerGeo, kraft(0xc99a63, 0.9));
-    const bottomLiner = new THREE.Mesh(linerGeo, kraft(0x9c6c3a, 0.9));
+    const topLiner = new THREE.Mesh(linerGeo, topMat);
+    const bottomLiner = new THREE.Mesh(linerGeo, botMat);
+    for (const m of [flute, topLiner, bottomLiner]) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
     const restY = AMP + SHEET / 2 + LINER / 2;
     topLiner.position.y = restY;
     bottomLiner.position.y = -restY;
     board.add(flute, topLiner, bottomLiner);
     scene.add(board);
 
+    // katmanlara işaret noktaları (pano koordinatında)
+    const anchorLocal = [
+      () => new THREE.Vector3(0.6, topLiner.position.y + LINER / 2, 0.4),
+      () => new THREE.Vector3(-W * 0.18, 0, D / 2),
+      () => new THREE.Vector3(W * 0.2, bottomLiner.position.y - LINER / 2, D / 2),
+    ];
+    const anchors: Anchor[] = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }];
+    const v = new THREE.Vector3();
+
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = el;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       // dar ekranlarda paneli sığdırmak için kamerayı geri çek
-      camera.position.z = w / h < 0.9 ? 22 : w / h < 1.3 ? 17 : 15;
+      camera.position.z = w / h < 0.9 ? 21 : w / h < 1.3 ? 17 : 15;
       camera.updateProjectionMatrix();
     };
     resize();
@@ -125,6 +177,18 @@ export default function BoardScene({ progress }: Props) {
       board.position.y = reduce ? 0 : Math.sin(t * 0.8) * 0.05;
 
       renderer.render(scene, camera);
+
+      if (frameCb.current) {
+        board.updateMatrixWorld();
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        anchorLocal.forEach((fn, i) => {
+          v.copy(fn()).applyMatrix4(board.matrixWorld).project(camera);
+          anchors[i].x = ((v.x + 1) / 2) * w;
+          anchors[i].y = ((1 - v.y) / 2) * h;
+        });
+        frameCb.current(anchors, renderer.domElement);
+      }
     };
     tick();
 
@@ -133,9 +197,20 @@ export default function BoardScene({ progress }: Props) {
       ro.disconnect();
       io.disconnect();
       window.removeEventListener("pointermove", onMove);
-      renderer.dispose();
+      [topMat, botMat, fluteMat].forEach((m) => {
+        m.map?.dispose();
+        m.bumpMap?.dispose();
+        m.dispose();
+      });
+      [topTex, botTex, fluteTex].forEach((t) => {
+        t.map.dispose();
+        t.bumpMap.dispose();
+      });
+      envTex.dispose();
+      pmrem.dispose();
       flute.geometry.dispose();
       linerGeo.dispose();
+      renderer.dispose();
       el.removeChild(renderer.domElement);
     };
   }, [progress]);
