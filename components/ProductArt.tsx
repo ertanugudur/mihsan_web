@@ -95,8 +95,6 @@ export const TelescopicArt = () => {
     <Svg>
       <BoxShape L={L} W={W} H={0.62} ox={ox} oz={oz} y0={-0.55} />
       <BoxShape L={L + 0.08} W={W + 0.08} H={0.22} ox={ox - 0.04} oz={oz - 0.04} y0={0.32} />
-      <Line accent pts={[[ox + L + 0.04, 0.32, oz + W + 0.04], [ox + L + 0.04, 0.12, oz + W + 0.04]]} />
-      <Line accent pts={[[ox - 0.04, 0.32, oz + W + 0.04], [ox - 0.04, 0.12, oz + W + 0.04]]} />
     </Svg>
   );
 };
@@ -138,19 +136,37 @@ export const LockArt = () => {
 };
 
 export const PizzaArt = () => {
-  const L = 1.2, W = 1.2, H = 0.16, ox = -0.6, oz = -0.6, y0 = -0.2, a = 0.95;
+  const L = 1.2, W = 1.2, H = 0.17, t = 0.04, ox = -0.6, oz = -0.6, y0 = -0.22, a = 1.0;
   const P = (x: number, y: number, z: number): V3 => [x + ox, y + y0, z + oz];
-  const lid = (x: number, s: number): V3 => P(x, H + Math.sin(a) * s, Math.cos(a) * s);
+  // kapak arka kenardan menteşeli: düzlem + kalınlık + ön dil
+  const lid = (x: number, s: number, up = 0): V3 => P(x, H + Math.sin(a) * s + Math.cos(a) * up, Math.cos(a) * s - Math.sin(a) * up);
+  const lip = 0.15;
+  // ön dilin ucu: kapak ucundan kapağa dik aşağı iner
+  const lipEnd = (x: number): V3 => P(x, H + Math.sin(a) * W - Math.cos(a) * lip, Math.cos(a) * W + Math.sin(a) * lip);
+  const holes = [0.32, 0.6, 0.88];
   return (
     <Svg>
-      <Face pts={[lid(0, 0), lid(L, 0), lid(L, W), lid(0, W)]} fill={TOP} />
-      {[0.3, 0.6, 0.9].map((x) => (
-        <Line key={x} accent pts={[lid(x, 0.55), lid(x + 0.06, 0.55)]} />
-      ))}
-      <Face pts={[P(0.04, 0.02, 0.04), P(L - 0.04, 0.02, 0.04), P(L - 0.04, 0.02, W - 0.04), P(0.04, 0.02, W - 0.04)]} fill={SIDE_B} />
+      {/* kapak: üst yüzey, kalınlık ve ön dil */}
+      <Face pts={[lid(0, 0, t), lid(L, 0, t), lid(L, W, t), lid(0, W, t)]} fill={TOP} />
+      <Face pts={[lid(L, 0, 0), lid(L, 0, t), lid(L, W, t), lid(L, W, 0)]} fill={SIDE_A} />
+      <Face pts={[lid(0, W, 0), lid(L, W, 0), lipEnd(L), lipEnd(0)]} fill={SIDE_B} />
+      <Face pts={[lid(0, W, t), lid(L, W, t), lid(L, W, 0), lid(0, W, 0)]} fill={SIDE_A} />
+      {/* gövde: iç taban ve iç duvarlar */}
+      <Face pts={[P(t, 0.02, t), P(L - t, 0.02, t), P(L - t, 0.02, W - t), P(t, 0.02, W - t)]} fill={SIDE_B} />
+      <Face pts={[P(t, 0, t), P(t, H, t), P(t, H, W - t), P(t, 0, W - t)]} fill={SIDE_A} />
+      <Face pts={[P(t, 0, t), P(L - t, 0, t), P(L - t, H, t), P(t, H, t)]} fill={TOP} />
+      {/* dış duvarlar */}
       <Face pts={[P(L, 0, 0), P(L, H, 0), P(L, H, W), P(L, 0, W)]} fill={SIDE_A} />
       <Face pts={[P(0, 0, W), P(L, 0, W), P(L, H, W), P(0, H, W)]} fill={SIDE_B} />
       <Line close pts={[P(0, H, 0), P(L, H, 0), P(L, H, W), P(0, H, W)]} />
+      <Line close pts={[P(t, H, t), P(L - t, H, t), P(L - t, H, W - t), P(t, H, W - t)]} />
+      {/* yan hava delikleri */}
+      {holes.map((z) => (
+        <Face key={`r${z}`} pts={[P(L, H * 0.42, z), P(L, H * 0.42, z + 0.09), P(L, H * 0.62, z + 0.09), P(L, H * 0.62, z)]} fill="var(--ink)" />
+      ))}
+      {holes.map((x) => (
+        <Face key={`f${x}`} pts={[P(x, H * 0.42, W), P(x + 0.09, H * 0.42, W), P(x + 0.09, H * 0.62, W), P(x, H * 0.62, W)]} fill="var(--ink)" />
+      ))}
     </Svg>
   );
 };
@@ -170,22 +186,36 @@ export const CornerArt = () => {
 };
 
 export const SheetArt = () => {
-  const L = 1.3, W = 0.8, ox = -0.65, oz = -0.4, y0 = -0.05, A = 0.07, n = 10;
-  const P = (x: number, y: number, z: number): V3 => [x + ox, y + y0, z + oz];
-  const crest: V3[] = [];
-  for (let i = 0; i <= 80; i++) {
-    const x = (L * i) / 80;
-    crest.push(P(x, A + A * Math.sin((x / L) * n * Math.PI * 2), W));
-  }
+  const L = 1.3, W = 0.85, h = 0.13, ox = -0.65, oz = -0.42;
+  const sheets = [-0.3, -0.12, 0.06]; // tabaka yığını
+  const Sheet = ({ y0, dx }: { y0: number; dx: number }) => {
+    const P = (x: number, y: number, z: number): V3 => [x + ox + dx, y + y0, z + oz - dx];
+    const n = 9;
+    const wave: V3[] = [];
+    for (let i = 0; i <= 90; i++) {
+      const x = (L * i) / 90;
+      wave.push(P(x, h / 2 + (h / 2 - 0.022) * Math.sin((x / L) * n * Math.PI * 2), W));
+    }
+    const side: V3[] = [];
+    for (let i = 0; i <= 60; i++) {
+      const z = (W * i) / 60;
+      side.push(P(L, h / 2, z));
+    }
+    return (
+      <>
+        <Face pts={[P(L, 0, 0), P(L, h, 0), P(L, h, W), P(L, 0, W)]} fill={SIDE_A} />
+        <Face pts={[P(0, 0, W), P(L, 0, W), P(L, h, W), P(0, h, W)]} fill={SIDE_B} />
+        <Face pts={[P(0, h, 0), P(L, h, 0), P(L, h, W), P(0, h, W)]} fill={TOP} />
+        <Line accent pts={wave} />
+        <Line pts={side} />
+      </>
+    );
+  };
   return (
     <Svg>
-      <Face pts={[P(0, 0, 0), P(L, 0, 0), P(L, 0, W), P(0, 0, W)]} fill={SIDE_B} />
-      {Array.from({ length: n }, (_, i) => {
-        const x = (L * (i + 0.25)) / n;
-        return <Line key={i} pts={[P(x, 2 * A, 0), P(x, 2 * A, W)]} />;
-      })}
-      <Line accent pts={crest} />
-      <Line pts={[P(0, 0, W), P(L, 0, W)]} />
+      {sheets.map((y, i) => (
+        <Sheet key={y} y0={y} dx={i === 1 ? 0.05 : 0} />
+      ))}
     </Svg>
   );
 };

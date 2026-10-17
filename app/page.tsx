@@ -5,6 +5,7 @@ import Flutes from "@/components/Flutes";
 import Process from "@/components/Process";
 import Quote from "@/components/Quote";
 import Footer from "@/components/Footer";
+import SmoothAnchors from "@/components/SmoothAnchors";
 
 export default function Home() {
   return (
@@ -19,6 +20,7 @@ export default function Home() {
         <Quote />
       </main>
       <Footer />
+      <SmoothAnchors />
     </>
   );
 }

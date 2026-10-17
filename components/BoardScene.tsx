@@ -26,20 +26,23 @@ const L = 4.2; // en (x)
 const H = 2.7; // gövde yüksekliği (y)
 const Wd = 3.0; // boy (z)
 const T = 0.09; // mukavva kalınlığı
-const FLAP = Wd / 2; // kapak boyu
+const SEAM = 0.012; // uzun kapakların ortada birleştiği ince çizgi
+const FLAP_L = Wd / 2 - T - SEAM; // uzun kapak boyu
+const FLAP_S = Wd / 2 - T; // kısa kapak boyu
+const GAP_E = 0.004; // komşu parçalar arasında görünmez pay (z-fighting önler)
 
 // ---------- renkler (düz kraft)
 const C = {
   outer: 0xb5824d,
   inner: 0xa97845,
-  edge: 0xcaa275,
+  edge: 0xbf935f,
   flute: 0xbb8d5a,
   innerLiner: 0xa3733f,
 };
 
 // ---------- ön kapağın oluklu yapısı (detay ölçeğinde kurulur, kapağa ölçeklenir)
 const BW = 6.4; // kapak eni
-const BD = (BW * FLAP) / L; // kapak boyu, gerçek oranla
+const BD = (BW * FLAP_L) / L; // kapak boyu, gerçek oranla
 const PERIOD = 0.58;
 const AMP = 0.3;
 const SHEET = 0.045;
@@ -72,7 +75,7 @@ function fluteGeometry() {
   return geo;
 }
 
-/** Düz kraft zemine flekso baskı gibi logo */
+/** Ön yüze basılan logo (şeffaf zeminli baskı katmanı) */
 function printTexture(aspect: number, logo: HTMLImageElement | null) {
   const w = 1024;
   const h = Math.round(w / aspect);
@@ -80,8 +83,6 @@ function printTexture(aspect: number, logo: HTMLImageElement | null) {
   c.width = w;
   c.height = h;
   const g = c.getContext("2d")!;
-  g.fillStyle = "#b5824d";
-  g.fillRect(0, 0, w, h);
   if (logo && logo.naturalWidth) {
     const lw = w * 0.6;
     const lh = (lw * logo.naturalHeight) / logo.naturalWidth;
@@ -100,6 +101,29 @@ function printTexture(aspect: number, logo: HTMLImageElement | null) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   return tex;
+}
+
+/** Dört duvarı tek parça, ek yeri olmayan bir halka olarak üretir (y0..y1 yüksekliğinde) */
+function wallRing(y0: number, y1: number) {
+  const outer = new THREE.Shape();
+  outer.moveTo(-L / 2, -Wd / 2);
+  outer.lineTo(L / 2, -Wd / 2);
+  outer.lineTo(L / 2, Wd / 2);
+  outer.lineTo(-L / 2, Wd / 2);
+  outer.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-L / 2 + T, -Wd / 2 + T);
+  hole.lineTo(-L / 2 + T, Wd / 2 - T);
+  hole.lineTo(L / 2 - T, Wd / 2 - T);
+  hole.lineTo(L / 2 - T, -Wd / 2 + T);
+  hole.closePath();
+  outer.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(outer, { depth: y1 - y0, bevelEnabled: false });
+  // şekil XZ düzleminde, yükseklik y ekseninde
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, y0, 0);
+  g.computeVertexNormals();
+  return g;
 }
 
 /** Yerel aralıklarla kutu geometrisi: x0..x1, y0..y1, z0..z1 */
@@ -146,7 +170,8 @@ export default function BoardScene({ progress, onFrame }: Props) {
     key.shadow.camera.left = key.shadow.camera.bottom = -8;
     key.shadow.camera.right = key.shadow.camera.top = 8;
     key.shadow.radius = 5;
-    key.shadow.bias = -0.0008;
+    key.shadow.bias = -0.0005;
+    key.shadow.normalBias = 0.02;
     scene.add(key);
     const rim = new THREE.DirectionalLight(0xffe2c0, 0.8);
     rim.position.set(-6, -2, -4);
@@ -184,15 +209,31 @@ export default function BoardScene({ progress, onFrame }: Props) {
       fading.push(m);
       return m;
     };
-    // BoxGeometry yüz sırası: +x, -x, +y, -y, +z, -z
-    const top = H / 2 + T; // uzun kenar duvarları kısa kapakları da örter
-    add(slab(-L / 2, L / 2, -H / 2, top, Wd / 2 - T, Wd / 2), [edge, edge, edge, edge, print, inner], box); // ön
-    add(slab(-L / 2, L / 2, -H / 2, top, -Wd / 2, -Wd / 2 + T), [edge, edge, edge, edge, inner, outer], box); // arka
-    add(slab(L / 2 - T, L / 2, -H / 2, H / 2, -Wd / 2 + T, Wd / 2 - T), [outer, inner, edge, edge, edge, edge], box); // sağ
-    add(slab(-L / 2, -L / 2 + T, -H / 2, H / 2, -Wd / 2 + T, Wd / 2 - T), [inner, outer, edge, edge, edge, edge], box); // sol
-    add(slab(-L / 2 + T, L / 2 - T, -H / 2, -H / 2 + T, -Wd / 2 + T, Wd / 2 - T), [edge, edge, inner, outer, edge, edge], box); // taban
+    // gövde: tek parça duvar halkası + ön/arka uzun kapakların oturduğu ince şerit + taban
+    // ExtrudeGeometry grupları: 0 = kesik kenarlar (üst/alt), 1 = yüzeyler (iç ve dış)
+    const ringTop = H / 2 + T; // kısa kapaklar kapalıyken bu seviyede, halkanın içinde
+    const stripTop = ringTop + T; // uzun kapaklar bunun üstüne oturur
+    add(wallRing(-H / 2, ringTop), [edge, outer], box);
+    add(slab(-L / 2, L / 2, ringTop + GAP_E, stripTop, Wd / 2 - T, Wd / 2), [edge, edge, edge, edge, outer, outer], box);
+    add(slab(-L / 2, L / 2, ringTop + GAP_E, stripTop, -Wd / 2, -Wd / 2 + T), [edge, edge, edge, edge, outer, outer], box);
+    add(
+      slab(-L / 2 + T + GAP_E, L / 2 - T - GAP_E, -H / 2 + GAP_E, -H / 2 + T, -Wd / 2 + T + GAP_E, Wd / 2 - T - GAP_E),
+      [edge, edge, inner, outer, edge, edge],
+      box
+    );
 
-    // kapaklar: menteşe = duvarın üst dış kenarı; kapalıyken dış yüz yukarıda
+    // ön yüzdeki logo baskısı: yüzeye yapışık ince katman
+    const printMesh = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.96, H * 0.9), print);
+    printMesh.position.set(0, (stripTop - H / 2) / 2, Wd / 2 + 0.003);
+    print.transparent = true;
+    print.depthWrite = false;
+    print.polygonOffset = true;
+    print.polygonOffsetFactor = -2;
+    box.add(printMesh);
+    fading.push(printMesh);
+
+    // kapaklar: menteşe = duvarın üst iç kenarı (karton katlandığı yer)
+    // kapalıyken dış yüz yukarıda; açılırken duvarın devamı gibi kalkıp dışarı yatar
     const hinge = (pos: [number, number, number]) => {
       const g = new THREE.Group();
       g.position.set(...pos);
@@ -200,18 +241,18 @@ export default function BoardScene({ progress, onFrame }: Props) {
       return g;
     };
     const flapMats = [edge, edge, outer, inner, edge, edge];
-    const SEAM = 0.012; // uzun kapakların ortada birleştiği ince çizgi
-    const frontHinge = hinge([0, top, Wd / 2]);
-    const backHinge = hinge([0, top, -Wd / 2]);
-    add(slab(-L / 2, L / 2, -T, 0, 0, FLAP - SEAM), flapMats, backHinge);
-    const rightHinge = hinge([L / 2, H / 2, 0]);
-    add(slab(-FLAP, 0, -T, 0, -Wd / 2 + T, Wd / 2 - T), flapMats, rightHinge);
-    const leftHinge = hinge([-L / 2, H / 2, 0]);
-    add(slab(0, FLAP, -T, 0, -Wd / 2 + T, Wd / 2 - T), flapMats, leftHinge);
+    const frontHinge = hinge([0, stripTop, Wd / 2 - T]);
+    const backHinge = hinge([0, stripTop, -(Wd / 2 - T)]);
+    add(slab(-L / 2, L / 2, -T, 0, 0, FLAP_L), flapMats, backHinge);
+    const zIn = Wd / 2 - T - GAP_E;
+    const rightHinge = hinge([L / 2 - T, ringTop, 0]);
+    add(slab(-FLAP_S, -GAP_E, -T, 0, -zIn, zIn), flapMats, rightHinge);
+    const leftHinge = hinge([-(L / 2 - T), ringTop, 0]);
+    add(slab(GAP_E, FLAP_S, -T, 0, -zIn, zIn), flapMats, leftHinge);
 
     // ön kapağın koli üzerindeki yeri (ölçek ve yön kaynağı)
     const frontSlot = new THREE.Object3D();
-    frontSlot.position.set(0, -T / 2, -(FLAP - SEAM) / 2);
+    frontSlot.position.set(0, -T / 2, -FLAP_L / 2);
     frontHinge.add(frontSlot);
 
     // zemin gölgesi
@@ -237,7 +278,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
       flap.add(m);
     }
 
-    const fadeMats = [outer, inner, edge, print];
+    const fadeMats = [outer, inner, edge];
     const setBoxOpacity = (o: number) => {
       const tr = o < 0.999;
       for (const m of fadeMats) {
@@ -248,6 +289,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
         m.opacity = o;
         m.depthWrite = !tr;
       }
+      print.opacity = o;
       shadowMat.opacity = 0.16 * o;
       for (const m of fading) m.visible = o > 0.01;
     };
@@ -313,7 +355,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
     const eQuat = new THREE.Quaternion();
     const eScl = new THREE.Vector3();
     const euler = new THREE.Euler();
-    const slotScale = new THREE.Vector3(L / BW, T / THICK, (FLAP - SEAM) / BD);
+    const slotScale = new THREE.Vector3(L / BW, T / THICK, FLAP_L / BD);
     const tmpM = new THREE.Matrix4();
 
     let raf = 0;

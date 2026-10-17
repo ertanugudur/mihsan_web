@@ -14,7 +14,7 @@ import {
 } from "./ProductArt";
 
 const products = [
-  { id: "koli", name: "Amerikan koli", art: <RscArt />, text: "Dört kapaklı standart koli. Sevkiyatın en yaygın ve en ekonomik ambalajı.", specs: ["Tek ve çift oluklu", "Ölçüye göre", "Baskılı ya da sade"] },
+  { id: "koli", name: "A box koli", art: <RscArt />, text: "Dört kapaklı standart koli. Sevkiyatın en yaygın ve en ekonomik ambalajı.", specs: ["Tek ve çift oluklu", "Ölçüye göre", "Baskılı ya da sade"] },
   { id: "ofset", name: "Ofset kutu", art: <OffsetArt />, text: "Çok renkli ofset baskılı, raf ve vitrinde markanızı taşıyan ürün kutusu.", specs: ["Ofset baskı", "Lak ve selefon", "Mikro oluk"] },
   { id: "tava", name: "Tava", art: <TrayArt />, text: "Üstü açık tepsi. Meyve sebze, ara katman ve mağaza sergilemesi için.", specs: ["İstiflenebilir köşe", "Havalandırma deliği", "Gıdaya uygun kâğıt"] },
   { id: "teleskopik", name: "Teleskopik kutu", art: <TelescopicArt />, text: "Taban ve kapağı ayrı iki parça. Ağır ve hacimli ürünler için sağlam yapı.", specs: ["Tam ya da yarım kapak", "Yüksek istif gücü", "Yeniden kullanılabilir"] },

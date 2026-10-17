@@ -28,17 +28,20 @@ export default function Hero() {
   useEffect(() => {
     const onScroll = () => {
       const el = section.current;
-      if (!el) return;
+      // menüden yapılan otomatik kaydırmada koli animasyonu ara karelerden geçmesin
+      if (!el || window.__autoScroll) return;
       const r = el.getBoundingClientRect();
       const travel = el.offsetHeight - window.innerHeight;
       const v = Math.min(1, Math.max(0, -r.top / Math.max(travel, 1)));
       progress.current = v;
-      setPhase(v < TIMELINE.focus[0] - 0.02 ? 0 : v < TIMELINE.labels ? 1 : 2);
+      setPhase(v < TIMELINE.shortFlaps[0] ? 0 : v < TIMELINE.labels ? 1 : 2);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
+    window.addEventListener("autoscrollend", onScroll);
     return () => {
+      window.removeEventListener("autoscrollend", onScroll);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
