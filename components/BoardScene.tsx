@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export type Anchor = { x: number; y: number };
 
@@ -27,9 +28,10 @@ const H = 2.7; // gövde yüksekliği (y)
 const Wd = 3.0; // boy (z)
 const T = 0.09; // mukavva kalınlığı
 const SEAM = 0.012; // uzun kapakların ortada birleştiği ince çizgi
-const FLAP_L = Wd / 2 - T - SEAM; // uzun kapak boyu
-const FLAP_S = Wd / 2 - T; // kısa kapak boyu
-const GAP_E = 0.004; // komşu parçalar arasında görünmez pay (z-fighting önler)
+// Koli gövdesi ve arka/yan kapaklar Blender'da modellendi: public/models/koli.glb
+// (kaynak: blender/build_box.py). Aşağıdaki ölçüler o dosyayla birebir aynı olmalı.
+const Y_L = H / 2 + T; // uzun kenar menteşe ekseni
+const FLAP_L = Wd / 2 - T / 2 - SEAM; // uzun kapak boyu (eksenden ortaya)
 
 // ---------- renkler (düz kraft)
 const C = {
@@ -103,36 +105,6 @@ function printTexture(aspect: number, logo: HTMLImageElement | null) {
   return tex;
 }
 
-/** Dört duvarı tek parça, ek yeri olmayan bir halka olarak üretir (y0..y1 yüksekliğinde) */
-function wallRing(y0: number, y1: number) {
-  const outer = new THREE.Shape();
-  outer.moveTo(-L / 2, -Wd / 2);
-  outer.lineTo(L / 2, -Wd / 2);
-  outer.lineTo(L / 2, Wd / 2);
-  outer.lineTo(-L / 2, Wd / 2);
-  outer.closePath();
-  const hole = new THREE.Path();
-  hole.moveTo(-L / 2 + T, -Wd / 2 + T);
-  hole.lineTo(-L / 2 + T, Wd / 2 - T);
-  hole.lineTo(L / 2 - T, Wd / 2 - T);
-  hole.lineTo(L / 2 - T, -Wd / 2 + T);
-  hole.closePath();
-  outer.holes.push(hole);
-  const g = new THREE.ExtrudeGeometry(outer, { depth: y1 - y0, bevelEnabled: false });
-  // şekil XZ düzleminde, yükseklik y ekseninde
-  g.rotateX(-Math.PI / 2);
-  g.translate(0, y0, 0);
-  g.computeVertexNormals();
-  return g;
-}
-
-/** Yerel aralıklarla kutu geometrisi: x0..x1, y0..y1, z0..z1 */
-function slab(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
-  const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
-  g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-  return g;
-}
-
 export default function BoardScene({ progress, onFrame }: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const frameCb = useRef(onFrame);
@@ -202,29 +174,46 @@ export default function BoardScene({ progress, onFrame }: Props) {
     const box = new THREE.Group();
     scene.add(box);
     const fading: THREE.Mesh[] = [];
-    const add = (geo: THREE.BufferGeometry, mats: THREE.Material | THREE.Material[], parent: THREE.Object3D) => {
-      const m = new THREE.Mesh(geo, mats);
-      m.castShadow = m.receiveShadow = true;
-      parent.add(m);
-      fading.push(m);
-      return m;
+    // Blender modeli: gövde + arka, sağ, sol kapak (pivotlar menteşe ekseninde)
+    const aoTex = new THREE.TextureLoader().load("/models/koli_ao.png");
+    aoTex.flipY = false;
+    aoTex.colorSpace = THREE.NoColorSpace;
+    const bodyMats: Record<string, THREE.MeshStandardMaterial> = {
+      kraft_outer: outer.clone(),
+      kraft_inner: inner.clone(),
+      kraft_edge: edge.clone(),
     };
-    // gövde: tek parça duvar halkası + ön/arka uzun kapakların oturduğu ince şerit + taban
-    // ExtrudeGeometry grupları: 0 = kesik kenarlar (üst/alt), 1 = yüzeyler (iç ve dış)
-    const ringTop = H / 2 + T; // kısa kapaklar kapalıyken bu seviyede, halkanın içinde
-    const stripTop = ringTop + T; // uzun kapaklar bunun üstüne oturur
-    add(wallRing(-H / 2, ringTop), [edge, outer], box);
-    add(slab(-L / 2, L / 2, ringTop + GAP_E, stripTop, Wd / 2 - T, Wd / 2), [edge, edge, edge, edge, outer, outer], box);
-    add(slab(-L / 2, L / 2, ringTop + GAP_E, stripTop, -Wd / 2, -Wd / 2 + T), [edge, edge, edge, edge, outer, outer], box);
-    add(
-      slab(-L / 2 + T + GAP_E, L / 2 - T - GAP_E, -H / 2 + GAP_E, -H / 2 + T, -Wd / 2 + T + GAP_E, Wd / 2 - T - GAP_E),
-      [edge, edge, inner, outer, edge, edge],
-      box
-    );
+    for (const m of Object.values(bodyMats)) {
+      m.aoMap = aoTex;
+      m.aoMapIntensity = 1.15;
+      all.push(m);
+    }
+    const flapMatsByName: Record<string, THREE.MeshStandardMaterial> = {
+      kraft_outer: outer,
+      kraft_inner: inner,
+      kraft_edge: edge,
+    };
+    const parts: Record<string, THREE.Object3D> = {};
+    new GLTFLoader().load("/models/koli.glb", (gltf) => {
+      for (const name of ["body", "flap_back", "flap_right", "flap_left"]) {
+        const node = gltf.scene.getObjectByName(name);
+        if (!node) continue;
+        node.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh) return;
+          const src = (m.material as THREE.Material).name;
+          m.material = (name === "body" ? bodyMats : flapMatsByName)[src] ?? outer;
+          m.castShadow = m.receiveShadow = true;
+          fading.push(m);
+        });
+        box.add(node);
+        parts[name] = node;
+      }
+    });
 
     // ön yüzdeki logo baskısı: yüzeye yapışık ince katman
     const printMesh = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.96, H * 0.9), print);
-    printMesh.position.set(0, (stripTop - H / 2) / 2, Wd / 2 + 0.003);
+    printMesh.position.set(0, (Y_L - H / 2) / 2, Wd / 2 + 0.003);
     print.transparent = true;
     print.depthWrite = false;
     print.polygonOffset = true;
@@ -232,27 +221,14 @@ export default function BoardScene({ progress, onFrame }: Props) {
     box.add(printMesh);
     fading.push(printMesh);
 
-    // kapaklar: menteşe = duvarın üst iç kenarı (karton katlandığı yer)
-    // kapalıyken dış yüz yukarıda; açılırken duvarın devamı gibi kalkıp dışarı yatar
-    const hinge = (pos: [number, number, number]) => {
-      const g = new THREE.Group();
-      g.position.set(...pos);
-      box.add(g);
-      return g;
-    };
-    const flapMats = [edge, edge, outer, inner, edge, edge];
-    const frontHinge = hinge([0, stripTop, Wd / 2 - T]);
-    const backHinge = hinge([0, stripTop, -(Wd / 2 - T)]);
-    add(slab(-L / 2, L / 2, -T, 0, 0, FLAP_L), flapMats, backHinge);
-    const zIn = Wd / 2 - T - GAP_E;
-    const rightHinge = hinge([L / 2 - T, ringTop, 0]);
-    add(slab(-FLAP_S, -GAP_E, -T, 0, -zIn, zIn), flapMats, rightHinge);
-    const leftHinge = hinge([-(L / 2 - T), ringTop, 0]);
-    add(slab(GAP_E, FLAP_S, -T, 0, -zIn, zIn), flapMats, leftHinge);
+    // ön kapak menteşesi: uzun duvarın kalınlık ortasındaki eksen
+    const frontHinge = new THREE.Group();
+    frontHinge.position.set(0, Y_L, Wd / 2 - T / 2);
+    box.add(frontHinge);
 
     // ön kapağın koli üzerindeki yeri (ölçek ve yön kaynağı)
     const frontSlot = new THREE.Object3D();
-    frontSlot.position.set(0, -T / 2, -FLAP_L / 2);
+    frontSlot.position.set(0, 0, -FLAP_L / 2);
     frontHinge.add(frontSlot);
 
     // zemin gölgesi
@@ -278,7 +254,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
       flap.add(m);
     }
 
-    const fadeMats = [outer, inner, edge];
+    const fadeMats = [outer, inner, edge, ...Object.values(bodyMats)];
     const setBoxOpacity = (o: number) => {
       const tr = o < 0.999;
       for (const m of fadeMats) {
@@ -327,7 +303,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
       camera.updateProjectionMatrix();
       // kapalı koli: masaüstünde metnin sağında, dar ekranda metnin altında
       boxX = aspect > 1.3 ? 2.5 : aspect > 0.9 ? 1.6 : 0;
-      boxY = narrow ? -2.0 : -0.2;
+      boxY = narrow ? -2.1 : -0.55;
       boxScale = narrow ? Math.min(0.8, aspect * 1.25) : aspect > 1.3 ? 1 : 0.85;
       // ayrılmış kapak her ekranda ortada ve sığacak boyutta
       flapScale = Math.min(1, aspect * 1.45) * (aspect > 1.3 ? 0.95 : 1);
@@ -384,9 +360,9 @@ export default function BoardScene({ progress, onFrame }: Props) {
 
       // --- koli: kapaklar menteşelerinden açılır
       frontHinge.rotation.x = a * 3.4;
-      backHinge.rotation.x = -a * 3.4;
-      rightHinge.rotation.z = -b * 3.3;
-      leftHinge.rotation.z = b * 3.3;
+      if (parts.flap_back) parts.flap_back.rotation.x = -a * 3.4;
+      if (parts.flap_right) parts.flap_right.rotation.z = -b * 3.3;
+      if (parts.flap_left) parts.flap_left.rotation.z = b * 3.3;
 
       // koli odak sırasında hafifçe geri çekilir ve kaybolur
       box.scale.setScalar(boxScale * (1 - f * 0.12));
@@ -446,6 +422,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
         m.dispose();
       });
       fading.forEach((m) => m.geometry.dispose());
+      aoTex.dispose();
       ground.geometry.dispose();
       shadowMat.dispose();
       fluteMesh.geometry.dispose();
