@@ -4,6 +4,17 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { nav, site } from "@/lib/site";
 
+// ince, sık dalgalı ondüle şeridi (iki kâğıt arasında oluk)
+const STRIP = (() => {
+  const period = 13;
+  let d = "";
+  for (let x = 2; x <= 418; x += 0.5) {
+    const y = 20 - 14 * Math.sin((2 * Math.PI * (x - 2)) / period - Math.PI / 2);
+    d += `${x === 2 ? "M" : "L"}${x} ${y.toFixed(2)}`;
+  }
+  return d;
+})();
+
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -92,9 +103,9 @@ export default function Header() {
             {site.phone && <a className="drawer__contact" href={`tel:${site.phone.replace(/\s/g, "")}`}>{site.phone}</a>}
             {site.email && <a className="drawer__contact" href={`mailto:${site.email}`}>{site.email}</a>}
           </div>
-          <svg className="drawer__wave" viewBox="0 0 400 60" aria-hidden="true" preserveAspectRatio="none">
-            <path d="M0 4 H400 M0 56 H400" />
-            <path d="M0 30 q25 -26 50 0 t50 0 t50 0 t50 0 t50 0 t50 0 t50 0 t50 0" />
+          <svg className="drawer__wave" viewBox="0 0 420 40" aria-hidden="true" preserveAspectRatio="none">
+            <path d="M0 2 H420 M0 38 H420" />
+            <path d={STRIP} />
           </svg>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Anchor } from "./BoardScene";
+import { TIMELINE } from "./BoardScene";
 
 const BoardScene = dynamic(() => import("./BoardScene"), { ssr: false });
 
@@ -23,7 +24,7 @@ export default function Hero() {
   const pins = useRef<(HTMLDivElement | null)[]>([]);
   const progress = useRef(0);
   const mobile = useRef(false);
-  const [stage, setStage] = useState(0);
+  const [phase, setPhase] = useState(0);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 860px)");
@@ -38,7 +39,7 @@ export default function Hero() {
       const travel = el.offsetHeight - window.innerHeight;
       const v = Math.min(1, Math.max(0, -r.top / Math.max(travel, 1)));
       progress.current = v;
-      setStage(v > 0.35 ? 1 : 0);
+      setPhase(v < TIMELINE.zoom[0] - 0.02 ? 0 : v < TIMELINE.split[0] + 0.1 ? 1 : 2);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -59,6 +60,10 @@ export default function Hero() {
     const oy = cv.top - box.top;
     const W = box.width;
 
+    const Hh = box.height;
+    const topLimit = 84; // header altı
+    const botLimit = Hh - 12;
+
     anchors.forEach((a, i) => {
       const el = pins.current[i];
       if (!el) return;
@@ -66,27 +71,32 @@ export default function Hero() {
       const ay = a.y + oy;
       const w = el.offsetWidth;
       const h = el.offsetHeight;
-      const place = placement[i];
+      let place: string = placement[i];
+      // dikeyde sığmıyorsa yana geç
+      if (place === "above" && ay - h - GAP < topLimit) place = "side";
+      if (place === "below" && ay + GAP + h > botLimit) place = "side";
       let x: number;
       let y: number;
+      let dir: string;
       if (place === "side") {
-        // katmanın solunda dur, ok sağa baksın
-        x = Math.max(EDGE, ax - w - GAP);
-        y = ay - h / 2;
-        el.style.setProperty("--ay", `${h / 2}px`);
-        el.dataset.dir = "right";
+        const leftFits = ax - w - GAP >= EDGE;
+        x = leftFits ? ax - w - GAP : Math.min(W - w - EDGE, ax + GAP);
+        dir = leftFits ? "right" : "left";
+        y = Math.min(botLimit - h, Math.max(topLimit, ay - h / 2));
+        el.style.setProperty("--ay", `${Math.min(h - 14, Math.max(14, ay - y))}px`);
       } else {
         x = Math.min(W - w - EDGE, Math.max(EDGE, ax - w / 2));
         y = place === "above" ? ay - h - GAP : ay + GAP;
+        dir = place === "above" ? "down" : "up";
         el.style.setProperty("--ax", `${Math.min(w - 18, Math.max(18, ax - x))}px`);
-        el.dataset.dir = place === "above" ? "down" : "up";
       }
+      el.dataset.dir = dir;
       el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
     });
   }, []);
 
   return (
-    <section ref={section} className="hero" data-stage={stage}>
+    <section ref={section} className="hero" data-phase={phase}>
       <div ref={sticky} className="hero__sticky">
         <BoardScene progress={progress} onFrame={onFrame} />
 
@@ -131,7 +141,7 @@ export default function Hero() {
           ))}
         </div>
 
-        <p className="hero__hint" aria-hidden="true">Kaydırın, kolinin içine bakın</p>
+        <p className="hero__hint" aria-hidden="true">Kaydırın, koliyi açalım</p>
       </div>
     </section>
   );

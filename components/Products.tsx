@@ -1,88 +1,141 @@
-const BoxArt = () => (
-  <svg viewBox="0 0 240 200" fill="none" strokeLinejoin="round" strokeLinecap="round">
-    <path d="M120 40 L200 80 V160 L120 196 L40 160 V80 Z" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M40 80 L120 120 L200 80" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M120 120 V196" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M40 80 L70 48 L150 88 L120 120" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M200 80 L224 54 L150 20 L120 40" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M80 140 L80 172 M92 146 V178" stroke="var(--kraft)" strokeWidth="3" />
-  </svg>
-);
+"use client";
 
-const CornerArt = () => (
-  <svg viewBox="0 0 240 200" fill="none" strokeLinejoin="round" strokeLinecap="round">
-    <path d="M60 60 L100 40 V180 L60 196 Z" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M100 40 L196 88 V108 L100 60" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M60 60 L156 108 H196" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M100 60 V180" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M72 86 V170 M84 80 V164" stroke="var(--kraft)" strokeWidth="3" />
-  </svg>
-);
-
-const SheetArt = () => (
-  <svg viewBox="0 0 240 200" fill="none" strokeLinejoin="round" strokeLinecap="round">
-    <path d="M24 64 H216" stroke="currentColor" strokeWidth="2.5" />
-    <path d="M24 136 H216" stroke="currentColor" strokeWidth="2.5" />
-    <path
-      d="M24 100 q12 -36 24 0 t24 0 t24 0 t24 0 t24 0 t24 0 t24 0 t24 0"
-      stroke="var(--kraft)"
-      strokeWidth="3"
-    />
-    <path d="M200 150 c10 10 10 30 -6 34 c-14 2 -18 -14 -8 -18" stroke="currentColor" strokeWidth="2.5" />
-  </svg>
-);
+import { useEffect, useRef, useState } from "react";
+import {
+  CornerArt,
+  LockArt,
+  OffsetArt,
+  PizzaArt,
+  RscArt,
+  SheetArt,
+  ShoeArt,
+  TelescopicArt,
+  TrayArt,
+} from "./ProductArt";
 
 const products = [
-  {
-    id: "kutu",
-    name: "Karton kutu",
-    art: <BoxArt />,
-    text: "E-ticaret paketinden ağır sanayi yüküne kadar, ölçüye göre üretilen oluklu mukavva koliler.",
-    specs: ["Tek ve çift oluklu", "Standart koli ve özel kesim", "Baskılı ya da sade kraft yüzey", "Küçük ve büyük adetler"],
-  },
-  {
-    id: "kosebent",
-    name: "Köşebent",
-    art: <CornerArt />,
-    text: "Palet ve kolilerin köşelerini çember baskısına, darbeye ve istif yüküne karşı koruyan karton profiller.",
-    specs: ["İstenen boy ve kanat ölçüsü", "Farklı et kalınlıkları", "Plastiğe kâğıt bazlı alternatif", "Tamamen geri dönüştürülebilir"],
-  },
-  {
-    id: "ondule",
-    name: "Ondüle",
-    art: <SheetArt />,
-    text: "Sarma, ara katman ve dolgu için rulo ya da tabaka halinde esnek oluklu karton.",
-    specs: ["Rulo ve tabaka", "Farklı dalga yükseklikleri", "Cam, mobilya ve hassas yüzeyler için", "Hattınıza uygun genişlik"],
-  },
+  { id: "koli", name: "Amerikan koli", art: <RscArt />, text: "Dört kapaklı standart koli. Sevkiyatın en yaygın ve en ekonomik ambalajı.", specs: ["Tek ve çift oluklu", "Ölçüye göre", "Baskılı ya da sade"] },
+  { id: "ofset", name: "Ofset kutu", art: <OffsetArt />, text: "Çok renkli ofset baskılı, raf ve vitrinde markanızı taşıyan ürün kutusu.", specs: ["Ofset baskı", "Lak ve selefon", "Mikro oluk"] },
+  { id: "tava", name: "Tava", art: <TrayArt />, text: "Üstü açık tepsi. Meyve sebze, ara katman ve mağaza sergilemesi için.", specs: ["İstiflenebilir köşe", "Havalandırma deliği", "Gıdaya uygun kâğıt"] },
+  { id: "teleskopik", name: "Teleskopik kutu", art: <TelescopicArt />, text: "Taban ve kapağı ayrı iki parça. Ağır ve hacimli ürünler için sağlam yapı.", specs: ["Tam ya da yarım kapak", "Yüksek istif gücü", "Yeniden kullanılabilir"] },
+  { id: "ayakkabi", name: "Ayakkabı kutusu", art: <ShoeArt />, text: "Kapaklı, köşeleri sağlam ayakkabı ve tekstil kutusu.", specs: ["Baskılı kapak", "Etiket alanı", "Seri üretim"] },
+  { id: "kilitli", name: "Kilitli kutu", art: <LockArt />, text: "Dibi tek hareketle kilitlenen, bant gerektirmeden hızla kurulan kutu.", specs: ["Otomatik kilitli dip", "Hızlı kurulum", "Bantsız"] },
+  { id: "pizza", name: "Pizza kutusu", art: <PizzaArt />, text: "Gıdayla temasa uygun kâğıttan, buhar delikli pizza kutusu.", specs: ["Gıdaya uygun", "Buhar delikleri", "Farklı çaplar"] },
+  { id: "kosebent", name: "Köşebent", art: <CornerArt />, text: "Palet ve koli köşelerini çember baskısına ve darbeye karşı koruyan karton profil.", specs: ["İstenen boy", "Farklı kalınlıklar", "Geri dönüştürülebilir"] },
+  { id: "ondule", name: "Ondüle", art: <SheetArt />, text: "Sarma, ara katman ve dolgu için rulo ya da tabaka oluklu karton.", specs: ["Rulo ve tabaka", "Farklı dalga tipleri", "Hassas yüzeyler için"] },
 ];
 
 export default function Products() {
+  const rail = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ p: 0, start: true, end: false });
+
+  useEffect(() => {
+    const el = rail.current;
+    if (!el) return;
+    const onScroll = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      setPos({ p: max > 0 ? el.scrollLeft / max : 0, start: el.scrollLeft < 8, end: el.scrollLeft > max - 8 });
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    // fareyle sürükleyerek kaydırma (dokunmatikte tarayıcı zaten yapıyor)
+    let down = false;
+    let sx = 0;
+    let sl = 0;
+    let moved = false;
+    const pd = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
+      down = true;
+      moved = false;
+      sx = e.clientX;
+      sl = el.scrollLeft;
+    };
+    const pm = (e: PointerEvent) => {
+      if (!down) return;
+      const dx = e.clientX - sx;
+      if (Math.abs(dx) > 4 && !moved) {
+        moved = true;
+        el.classList.add("rail--drag");
+      }
+      if (moved) el.scrollLeft = sl - dx;
+    };
+    const pu = () => {
+      if (!down) return;
+      down = false;
+      el.classList.remove("rail--drag");
+    };
+    const click = (e: MouseEvent) => {
+      if (moved) {
+        e.preventDefault();
+        e.stopPropagation();
+        moved = false;
+      }
+    };
+    el.addEventListener("pointerdown", pd);
+    window.addEventListener("pointermove", pm);
+    window.addEventListener("pointerup", pu);
+    el.addEventListener("click", click, true);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      el.removeEventListener("pointerdown", pd);
+      window.removeEventListener("pointermove", pm);
+      window.removeEventListener("pointerup", pu);
+      el.removeEventListener("click", click, true);
+    };
+  }, []);
+
+  const step = (dir: number) => {
+    const el = rail.current;
+    if (!el) return;
+    const card = el.querySelector<HTMLElement>(".pcard");
+    const w = card ? card.offsetWidth + 20 : el.clientWidth * 0.8;
+    el.scrollBy({ left: dir * w * (el.clientWidth > 900 ? 2 : 1), behavior: "smooth" });
+  };
+
   return (
     <section id="urunler" className="products">
       <div className="wrap">
         <header className="section-head">
           <h2 className="section-title">Ne üretiyoruz</h2>
           <p className="section-lead">
-            Üç ürün, tek iş: ürününüzün yoldan sağlam çıkması. Her siparişi ölçü, yük ve sevkiyat
-            koşuluna göre birlikte netleştiriyoruz.
+            Standart koliden ofset baskılı ürün kutusuna, köşebentten ondüleye. Her ürünü ölçü, yük ve
+            sevkiyat koşuluna göre birlikte netleştiriyoruz.
           </p>
         </header>
+      </div>
 
-        <div className="products__list">
-          {products.map((p) => (
-            <article key={p.id} className="product" id={p.id}>
-              <div className="product__art">{p.art}</div>
-              <div className="product__body">
-                <h3 className="product__name">{p.name}</h3>
-                <p className="product__text">{p.text}</p>
-              </div>
-              <ul className="product__specs">
+      <div className="rail" ref={rail} role="list" aria-label="Ürünler">
+        {products.map((p) => (
+          <article key={p.id} id={p.id} className="pcard" role="listitem">
+            <div className="pcard__art">{p.art}</div>
+            <div className="pcard__body">
+              <h3 className="pcard__name">{p.name}</h3>
+              <p className="pcard__text">{p.text}</p>
+              <ul className="pcard__specs">
                 {p.specs.map((s) => (
                   <li key={s}>{s}</li>
                 ))}
               </ul>
-            </article>
-          ))}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="wrap rail-controls">
+        <div className="rail-progress" aria-hidden="true">
+          <span style={{ transform: `scaleX(${0.12 + pos.p * 0.88})` }} />
+        </div>
+        <span className="rail-count">{products.length} ürün</span>
+        <div className="rail-buttons">
+          <button className="rail-btn" onClick={() => step(-1)} disabled={pos.start} aria-label="Önceki ürünler">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 L8 12 L15 19" /></svg>
+          </button>
+          <button className="rail-btn" onClick={() => step(1)} disabled={pos.end} aria-label="Sonraki ürünler">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5 L16 12 L9 19" /></svg>
+          </button>
         </div>
       </div>
     </section>
