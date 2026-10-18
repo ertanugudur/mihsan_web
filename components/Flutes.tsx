@@ -43,7 +43,7 @@ export default function Flutes() {
   return (
     <section id="oluk" className="flutes">
       <div className="wrap">
-        <header className="section-head">
+        <header className="section-head section-head--line">
           <h2 className="section-title">Doğru oluk, doğru koli</h2>
           <p className="section-lead">
             Kolinin dayanımını kâğıt kadar oluk tipi belirler. Hangisinin size uyduğunu bilmiyorsanız

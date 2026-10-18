@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { site } from "@/lib/site";
+import Loader from "@/components/Loader";
 
 const poppins = localFont({
   src: [
@@ -41,7 +42,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="tr" className={`${poppins.variable} ${cinea.variable}`}>
-      <body>{children}</body>
+      <body>
+        <Loader />
+        {children}
+      </body>
     </html>
   );
 }

@@ -38,4 +38,4 @@ Bu komut `public/models/koli.glb` (model) ve `public/models/koli_ao.png` (iç g�
 
 ## Yayın
 
-Vercel'e bağlı. `main` dalına gönderilen her değişiklik otomatik yayınlanır.
+Vercel projesi: mihsan-ambalaj. Proje Git deposuna bağlı değil; yeni sürüm Vercel panelinden ya da `vercel --prod` ile yayınlanır.

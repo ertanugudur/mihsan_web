@@ -7,6 +7,12 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export type Anchor = { x: number; y: number };
 
+declare global {
+  interface Window {
+    __mihsanReady?: boolean;
+  }
+}
+
 /** Scroll zaman çizelgesi (0–1) */
 export const TIMELINE = {
   longFlaps: [0.04, 0.24],
@@ -134,7 +140,8 @@ export default function BoardScene({ progress, onFrame }: Props) {
     camera.position.set(0, 0.4, 15);
     camera.lookAt(0, 0, 0);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfc2, 0.75));
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xd9cfc2, 0.75);
+    scene.add(hemi);
     const key = new THREE.DirectionalLight(0xfff6ea, 2.6);
     key.position.set(5, 10, 7);
     key.castShadow = true;
@@ -148,6 +155,10 @@ export default function BoardScene({ progress, onFrame }: Props) {
     const rim = new THREE.DirectionalLight(0xffe2c0, 0.8);
     rim.position.set(-6, -2, -4);
     scene.add(rim);
+    // koli ayrı bir katmanda (1) çizilir; ışıklar ve gölge kamerası her katmanı görür
+    const BOX_LAYER = 1;
+    for (const l of [hemi, key, rim]) l.layers.enableAll();
+    key.shadow.camera.layers.enableAll();
 
     // ---------- malzemeler
     const all: THREE.MeshStandardMaterial[] = [];
@@ -204,11 +215,19 @@ export default function BoardScene({ progress, onFrame }: Props) {
           const src = (m.material as THREE.Material).name;
           m.material = (name === "body" ? bodyMats : flapMatsByName)[src] ?? outer;
           m.castShadow = m.receiveShadow = true;
+          m.layers.set(BOX_LAYER);
           fading.push(m);
         });
         box.add(node);
         parts[name] = node;
       }
+      // ilk kare çizildikten sonra yükleme ekranına haber ver
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          window.__mihsanReady = true;
+          window.dispatchEvent(new Event("mihsan:ready"));
+        })
+      );
     });
 
     // ön yüzdeki logo baskısı: yüzeye yapışık ince katman
@@ -218,6 +237,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
     print.depthWrite = false;
     print.polygonOffset = true;
     print.polygonOffsetFactor = -2;
+    printMesh.layers.set(BOX_LAYER);
     box.add(printMesh);
     fading.push(printMesh);
 
@@ -237,6 +257,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -H / 2 - 0.001;
     ground.receiveShadow = true;
+    ground.layers.set(BOX_LAYER);
     box.add(ground);
 
     // ---------- ön kapak: dış kâğıt + oluk + iç kâğıt (hiç soluklaşmaz)
@@ -254,20 +275,68 @@ export default function BoardScene({ progress, onFrame }: Props) {
       flap.add(m);
     }
 
-    const fadeMats = [outer, inner, edge, ...Object.values(bodyMats)];
+    // Koli, saydam malzemelerle değil ayrı bir görüntü katmanı olarak soldurulur:
+    // böylece yüzler birbirinin önüne geçmez, koli tek parça halinde yavaşça kaybolur.
+    let boxOpacity = 1;
     const setBoxOpacity = (o: number) => {
-      const tr = o < 0.999;
-      for (const m of fadeMats) {
-        if (m.transparent !== tr) {
-          m.transparent = tr;
-          m.needsUpdate = true;
-        }
-        m.opacity = o;
-        m.depthWrite = !tr;
-      }
-      print.opacity = o;
-      shadowMat.opacity = 0.16 * o;
+      boxOpacity = o;
       for (const m of fading) m.visible = o > 0.01;
+      ground.visible = o > 0.01;
+    };
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    const quadMat = new THREE.ShaderMaterial({
+      uniforms: { tMap: { value: rt.texture }, uOpacity: { value: 1 } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: `
+        uniform sampler2D tMap; uniform float uOpacity; varying vec2 vUv;
+        void main(){
+          vec4 c = texture2D(tMap, vUv);
+          vec3 col = c.a > 0.0001 ? c.rgb / c.a : vec3(0.0);
+          gl_FragColor = vec4(col, c.a * uOpacity);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    quadMat.toneMapped = true;
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat);
+    quad.frustumCulled = false;
+    const quadScene = new THREE.Scene();
+    quadScene.add(quad);
+    const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const drawSize = new THREE.Vector2();
+
+    const draw = () => {
+      if (boxOpacity >= 0.999) {
+        camera.layers.enableAll();
+        renderer.render(scene, camera);
+        return;
+      }
+      renderer.getDrawingBufferSize(drawSize);
+      if (rt.width !== drawSize.x || rt.height !== drawSize.y) rt.setSize(drawSize.x, drawSize.y);
+      renderer.setClearColor(0x000000, 0);
+      if (boxOpacity > 0.01) {
+        // 1) koli tek başına ayrı katmana
+        renderer.setRenderTarget(rt);
+        renderer.clear();
+        camera.layers.set(BOX_LAYER);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+      }
+      renderer.clear();
+      if (boxOpacity > 0.01) {
+        // 2) koli katmanı saydamlıkla ekrana
+        quadMat.uniforms.uOpacity.value = boxOpacity;
+        renderer.render(quadScene, quadCam);
+      }
+      // 3) ön kapak her zaman tam opak, üstte
+      renderer.autoClear = false;
+      renderer.clearDepth();
+      camera.layers.set(0);
+      renderer.render(scene, camera);
+      renderer.autoClear = true;
     };
     // kapağın kendi malzemeleri soluklaşmamalı: aynı malzemeyi paylaşanları ayır
     const flapOuter = outer.clone();
@@ -396,7 +465,7 @@ export default function BoardScene({ progress, onFrame }: Props) {
       outerLiner.position.y = REST + gap;
       innerLiner.position.y = -REST - gap;
 
-      renderer.render(scene, camera);
+      draw();
 
       if (frameCb.current) {
         flap.updateMatrixWorld(true);
@@ -423,6 +492,9 @@ export default function BoardScene({ progress, onFrame }: Props) {
       });
       fading.forEach((m) => m.geometry.dispose());
       aoTex.dispose();
+      rt.dispose();
+      quadMat.dispose();
+      quad.geometry.dispose();
       ground.geometry.dispose();
       shadowMat.dispose();
       fluteMesh.geometry.dispose();

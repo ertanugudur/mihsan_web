@@ -25,7 +25,6 @@ export default function Footer() {
         <FooterWord />
         <div className="footer__bottom">
           <span>© {year} Mihsan Ambalaj</span>
-          <span>Karton kutu, köşebent ve ondüle</span>
         </div>
       </div>
     </footer>
