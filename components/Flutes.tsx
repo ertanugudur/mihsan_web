@@ -46,8 +46,8 @@ export default function Flutes() {
         <header className="section-head section-head--line">
           <h2 className="section-title">Doğru oluk, doğru koli</h2>
           <p className="section-lead">
-            Kolinin dayanımını kâğıt kadar oluk tipi belirler. Hangisinin size uyduğunu bilmiyorsanız
-            sorun yok: ürününüzü anlatın, birlikte seçelim.
+            Hangi oluk tipinin size uyduğunu bilmiyorsanız sorun yok: ürününüzü anlatın, birlikte
+            seçelim.
           </p>
         </header>
 
