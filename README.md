@@ -17,6 +17,7 @@ npm run build    # üretim derlemesi
 - **Oluk tipleri tablosu:** `components/Flutes.tsx`
 - **Renkler ve tipografi:** `app/globals.css` içindeki `:root` değişkenleri
 - **Logolar:** `public/logo/`
+- **Site adresi ve Google doğrulaması:** `lib/site.ts` içindeki `url` ve `googleVerification`. `sitemap.xml` ve `robots.txt` (`app/sitemap.ts`, `app/robots.ts`) bu adresi kullanır.
 
 ## 3D koli modeli
 

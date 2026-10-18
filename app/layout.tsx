@@ -25,12 +25,18 @@ const cinea = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(site.url),
   title: "Mihsan Ambalaj | Karton kutu, köşebent ve ondüle",
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
+  ...(site.googleVerification ? { verification: { google: site.googleVerification } } : {}),
   description: site.description,
   openGraph: {
     title: "Mihsan Ambalaj",
     description: site.description,
     locale: "tr_TR",
+    url: "/",
+    siteName: "Mihsan Ambalaj",
     type: "website",
   },
 };
