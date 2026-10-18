@@ -4,7 +4,7 @@ export const site = {
   name: "Mihsan Ambalaj",
   // Sitenin yayındaki adresi (sonunda / olmadan). Özel alan adı alınınca burayı değiştirin;
   // sitemap, robots.txt ve paylaşım önizlemeleri bu adresi kullanır.
-  url: "https://mihsan-ambalaj.vercel.app",
+  url: "https://mihsanambalaj.com",
   // Google Search Console > "HTML etiketi" doğrulamasındaki content="..." değeri
   googleVerification: "",
   description:
