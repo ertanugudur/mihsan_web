@@ -20,10 +20,10 @@ export default function SmoothAnchors() {
     let raf = 0;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const cancel = () => {
+    const cancel = (interrupted = false) => {
       cancelAnimationFrame(raf);
       window.__autoScroll = false;
-      window.dispatchEvent(new Event("autoscrollend"));
+      window.dispatchEvent(new CustomEvent("autoscrollend", { detail: { interrupted } }));
     };
 
     const scrollTo = (targetY: number) => {
@@ -63,7 +63,7 @@ export default function SmoothAnchors() {
     };
 
     // kullanıcı tekerlek ya da dokunmayla araya girerse otomatik kaydırmayı bırak
-    const interrupt = () => window.__autoScroll && cancel();
+    const interrupt = () => window.__autoScroll && cancel(true);
 
     document.addEventListener("click", onClick);
     window.addEventListener("wheel", interrupt, { passive: true });

@@ -26,24 +26,77 @@ export default function Hero() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    const onScroll = () => {
-      const el = section.current;
-      // menüden yapılan otomatik kaydırmada koli animasyonu ara karelerden geçmesin
-      if (!el || window.__autoScroll) return;
+    const phaseOf = (v: number) => (v < TIMELINE.shortFlaps[0] ? 0 : v < TIMELINE.labels ? 1 : 2);
+    const read = () => {
+      const el = section.current!;
       const r = el.getBoundingClientRect();
       const travel = el.offsetHeight - window.innerHeight;
-      const v = Math.min(1, Math.max(0, -r.top / Math.max(travel, 1)));
-      progress.current = v;
-      setPhase(v < TIMELINE.shortFlaps[0] ? 0 : v < TIMELINE.labels ? 1 : 2);
+      return { v: Math.min(1, Math.max(0, -r.top / Math.max(travel, 1))), visible: r.bottom > window.innerHeight * 0.25 };
     };
+
+    // Logo / menüyle koliye geri dönüldüğünde animasyon bir anda kapanmasın:
+    // kaydırma bitince koli, kaldığı yerden hedefe yavaşça geri sarılır.
+    let raf = 0;
+    let tweening = false;
+    const stopTween = () => {
+      cancelAnimationFrame(raf);
+      tweening = false;
+    };
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const tweenTo = (to: number) => {
+      stopTween();
+      const from = progress.current;
+      const dist = Math.abs(to - from);
+      const dur = 900 + dist * 1900; // tam geri sarma ~2.8 sn
+      const t0 = performance.now();
+      tweening = true;
+      const step = (now: number) => {
+        const t = Math.min(1, (now - t0) / dur);
+        const v = from + (to - from) * ease(t);
+        progress.current = v;
+        setPhase(phaseOf(v));
+        if (t < 1) raf = requestAnimationFrame(step);
+        else tweening = false;
+      };
+      raf = requestAnimationFrame(step);
+    };
+
+    const onScroll = () => {
+      // menüden yapılan otomatik kaydırmada koli animasyonu ara karelerden geçmesin
+      if (!section.current || window.__autoScroll || tweening) return;
+      const { v } = read();
+      progress.current = v;
+      setPhase(phaseOf(v));
+    };
+    const onAutoEnd = (e: Event) => {
+      if (!section.current) return;
+      if ((e as CustomEvent).detail?.interrupted) return onScroll();
+      const { v, visible } = read();
+      if (visible && Math.abs(v - progress.current) > 0.05) tweenTo(v);
+      else onScroll();
+    };
+    // kullanıcı geri sarma sırasında kendisi kaydırırsa kontrol ona geçer
+    const interrupt = () => {
+      if (!tweening) return;
+      stopTween();
+      requestAnimationFrame(onScroll);
+    };
+
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
-    window.addEventListener("autoscrollend", onScroll);
+    window.addEventListener("autoscrollend", onAutoEnd);
+    window.addEventListener("wheel", interrupt, { passive: true });
+    window.addEventListener("touchstart", interrupt, { passive: true });
+    window.addEventListener("keydown", interrupt);
     return () => {
-      window.removeEventListener("autoscrollend", onScroll);
+      stopTween();
+      window.removeEventListener("autoscrollend", onAutoEnd);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
+      window.removeEventListener("wheel", interrupt);
+      window.removeEventListener("touchstart", interrupt);
+      window.removeEventListener("keydown", interrupt);
     };
   }, []);
 
