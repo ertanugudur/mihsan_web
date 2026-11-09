@@ -8,7 +8,7 @@ export const site = {
   // Google Search Console > "HTML etiketi" doğrulamasındaki content="..." değeri
   googleVerification: "",
   description:
-    "Karton kutu, köşebent ve ondüle üretimi. Ürününüzün ölçüsüne ve yüküne göre tasarlanmış oluklu mukavva ambalaj.",
+    "Koli ve karton kutu imalatı: özel ölçü ve baskılı koli, karton köşebent ve ondüle karton üretimi. Tek ve çift oluklu seçenekler için hemen teklif alın.",
   phone: "", // örn. "+90 532 000 00 00"
   whatsapp: "", // sadece rakam, ülke koduyla: "905320000000"
   email: "", // örn. "info@mihsanambalaj.com"
@@ -20,5 +20,6 @@ export const nav = [
   { href: "#urunler", label: "Ürünler" },
   { href: "#oluk", label: "Oluk tipleri" },
   { href: "#surec", label: "Nasıl çalışıyoruz" },
+  { href: "#sss", label: "SSS" },
   { href: "#teklif", label: "İletişim" },
 ];

@@ -11,7 +11,7 @@ export default function Footer() {
           <Image
             className="footer__logo"
             src="/logo/mihsan-logo-light.png"
-            alt="Mihsan Ambalaj"
+            alt="Mihsan Ambalaj logosu"
             width={1400}
             height={401}
           />

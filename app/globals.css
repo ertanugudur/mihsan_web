@@ -140,6 +140,10 @@ p { margin: 0; }
   position: absolute; z-index: 1; left: var(--edge); top: 50%; transform: translateY(-46%);
   max-width: 560px; transition: opacity .5s, transform .6s;
 }
+.hero__eyebrow {
+  font-size: 13px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--kraft);
+  margin-bottom: 18px;
+}
 .hero__title {
   font-size: clamp(2.5rem, 5.4vw, 4.9rem); line-height: 1.02; letter-spacing: -0.035em;
 }
@@ -388,3 +392,18 @@ html.is-loading, html.is-loading body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .loader__line, .loader__wave { transition-duration: .01s !important; transition-delay: 0s !important; }
 }
+
+/* ---------- sık sorulan sorular ---------- */
+.faq { padding: clamp(80px, 12vw, 160px) 0 clamp(40px, 6vw, 80px); }
+.faq__list { border-top: 1px solid var(--line); }
+.faq__item { border-bottom: 1px solid var(--line); }
+.faq__q {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  padding: 24px 0; font-size: clamp(1.02rem, 1.5vw, 1.2rem); font-weight: 500;
+}
+.faq__q::-webkit-details-marker { display: none; }
+.faq__q svg { flex: none; width: 22px; height: 22px; fill: none; stroke: var(--kraft); stroke-width: 1.6; stroke-linecap: round; transition: transform .3s; }
+.faq__item[open] .faq__q svg { transform: rotate(45deg); }
+.faq__q:focus-visible { outline: 2px solid var(--kraft); outline-offset: 4px; }
+.faq__a { color: var(--muted); max-width: 62em; padding: 0 0 26px; }
+@media (prefers-reduced-motion: reduce) { .faq__q svg { transition: none; } }

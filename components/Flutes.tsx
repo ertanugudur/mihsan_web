@@ -4,7 +4,7 @@ const flutes = [
   { code: "B", mm: 3, name: "Orta oluk", use: "Konserve, cam şişe ve yoğun ürünler. Ezilmeye karşı dayanıklı.", double: false },
   { code: "C", mm: 4, name: "Yüksek oluk", use: "Genel sevkiyat kolileri. Yüksek istif gücü ve darbe emilimi.", double: false },
   { code: "EB", mm: 4.5, name: "Mikro çift oluk", use: "Hem baskı kalitesi hem dayanım isteyen ürünler.", double: true },
-  { code: "BC", mm: 7, name: "Çift oluk", use: "Ağır, hassas ve uzun yola çıkan yükler, ihracat.", double: true },
+  { code: "BC", mm: 7, name: "Çift oluk", use: "Ağır, hassas ve uzun yola çıkan yükler. İhracat kolisi için ilk tercih.", double: true },
 ];
 
 function Profile({ mm, double }: { mm: number; double: boolean }) {
@@ -46,12 +46,13 @@ export default function Flutes() {
         <header className="section-head section-head--line">
           <h2 className="section-title">Doğru oluk, doğru koli</h2>
           <p className="section-lead">
+            E, B ve C oluklu tek oluklu (3 katlı) koliler ile EB ve BC çift oluklu (5 katlı) koliler.
             Hangi oluk tipinin size uyduğunu bilmiyorsanız sorun yok: ürününüzü anlatın, birlikte
             seçelim.
           </p>
         </header>
 
-        <div className="flutes__table" role="table" aria-label="Oluk tipleri">
+        <div className="flutes__table" role="table" aria-label="Oluk tipleri: E, B, C, EB ve BC">
           {flutes.map((f) => (
             <div key={f.code} className="flute" role="row">
               <span className="flute__code" role="cell">{f.code}</span>

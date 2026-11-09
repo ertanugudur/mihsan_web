@@ -152,10 +152,11 @@ export default function Hero() {
         <BoardScene progress={progress} onFrame={onFrame} />
 
         <div className="hero__intro">
-          <h1 className="hero__title">Her ürün kendi ölçüsünde bir koliyi hak eder.</h1>
+          <h1 className="hero__eyebrow">Koli ve karton kutu imalatı</h1>
+          <p className="hero__title">Her ürün kendi ölçüsünde bir koliyi hak eder.</p>
           <p className="hero__lead">
-            Karton kutu, köşebent ve ondüle üretiyoruz. Ürününüzün ağırlığına, ölçüsüne ve
-            yolculuğuna göre.
+            Özel ölçü ve baskılı koli, karton kutu, karton köşebent ve ondüle karton üretiyoruz.
+            Ürününüzün ağırlığına, ölçüsüne ve yolculuğuna göre.
           </p>
           <div className="hero__actions">
             <a className="btn btn--solid" href="#teklif">Teklif iste</a>

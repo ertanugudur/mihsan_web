@@ -58,7 +58,7 @@ export default function Header() {
       <header className={`header${scrolled ? " header--scrolled" : ""}`}>
         <div className="header__inner">
           <a href="#top" className="header__logo" aria-label="Mihsan Ambalaj ana sayfa">
-            <Image src="/logo/mihsan-logo-dark.png" alt="Mihsan Ambalaj" width={1400} height={401} priority />
+            <Image src="/logo/mihsan-logo-dark.png" alt="Mihsan Ambalaj logosu" width={1400} height={401} priority />
           </a>
           <nav className="header__nav" aria-label="Ana menü">
             {nav.map((n) => (

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { site } from "@/lib/site";
 
-const productOptions = ["Karton kutu", "Köşebent", "Ondüle", "Henüz emin değilim"];
+const productOptions = ["Koli / karton kutu", "Karton köşebent", "Ondüle karton", "Henüz emin değilim"];
 
 export default function Quote() {
   const [status, setStatus] = useState<"idle" | "copied">("idle");
@@ -45,8 +45,8 @@ export default function Quote() {
         <div className="quote__intro">
           <h2 className="section-title">Ölçüyü söyleyin, gerisini konuşalım</h2>
           <p className="section-lead">
-            Formu doldurun, talebiniz doğrudan bize ulaşsın. Ölçüyü bilmiyorsanız ürünü anlatmanız
-            yeterli.
+            Koli fiyat teklifi için formu doldurun, talebiniz doğrudan bize ulaşsın. Ölçüyü
+            bilmiyorsanız ürünü anlatmanız yeterli.
           </p>
           <dl className="quote__contact">
             {site.phone && (

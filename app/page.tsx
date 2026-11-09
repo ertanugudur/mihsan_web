@@ -4,6 +4,8 @@ import Products from "@/components/Products";
 import Flutes from "@/components/Flutes";
 import Process from "@/components/Process";
 import Quote from "@/components/Quote";
+import Faq from "@/components/Faq";
+import OrgSchema from "@/components/OrgSchema";
 import Footer from "@/components/Footer";
 import SmoothAnchors from "@/components/SmoothAnchors";
 
@@ -17,10 +19,12 @@ export default function Home() {
         <Products />
         <Flutes />
         <Process />
+        <Faq />
         <Quote />
       </main>
       <Footer />
       <SmoothAnchors />
+      <OrgSchema />
     </>
   );
 }

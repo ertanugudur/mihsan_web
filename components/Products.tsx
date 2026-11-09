@@ -14,15 +14,15 @@ import {
 } from "./ProductArt";
 
 const products = [
-  { id: "koli", name: "A box koli", art: <RscArt />, text: "Dört kapaklı standart koli. Sevkiyatın en yaygın ve en ekonomik ambalajı.", specs: ["Tek ve çift oluklu", "Ölçüye göre", "Baskılı ya da sade"] },
-  { id: "ofset", name: "Ofset kutu", art: <OffsetArt />, text: "Çok renkli ofset baskılı, raf ve vitrinde markanızı taşıyan ürün kutusu.", specs: ["Ofset baskı", "Lak ve selefon", "Mikro oluk"] },
+  { id: "koli", name: "A box koli", art: <RscArt />, text: "Amerikan koli olarak da bilinen dört kapaklı standart koli (FEFCO 0201). Sevkiyatın ve e-ticaret kargosunun en yaygın, en ekonomik ambalajı.", specs: ["Tek ve çift oluklu", "Ölçüye göre", "Baskılı ya da sade"] },
+  { id: "ofset", name: "Ofset kutu", art: <OffsetArt />, text: "Çok renkli ofset baskılı, logolu ürün kutusu. Kozmetik, gıda ve perakendede rafta markanızı taşır.", specs: ["Ofset baskı", "Lak ve selefon", "Mikro oluk"] },
   { id: "tava", name: "Tava", art: <TrayArt />, text: "Üstü açık tepsi. Meyve sebze, ara katman ve mağaza sergilemesi için.", specs: ["İstiflenebilir köşe", "Havalandırma deliği", "Gıdaya uygun kâğıt"] },
   { id: "teleskopik", name: "Teleskopik kutu", art: <TelescopicArt />, text: "Taban ve kapağı ayrı iki parça. Ağır ve hacimli ürünler için sağlam yapı.", specs: ["Tam ya da yarım kapak", "Yüksek istif gücü", "Yeniden kullanılabilir"] },
-  { id: "ayakkabi", name: "Ayakkabı kutusu", art: <ShoeArt />, text: "Kapaklı, köşeleri sağlam ayakkabı ve tekstil kutusu.", specs: ["Baskılı kapak", "Etiket alanı", "Seri üretim"] },
-  { id: "kilitli", name: "Kilitli kutu", art: <LockArt />, text: "Dibi tek hareketle kilitlenen, bant gerektirmeden hızla kurulan kutu.", specs: ["Otomatik kilitli dip", "Hızlı kurulum", "Bantsız"] },
+  { id: "ayakkabi", name: "Ayakkabı kutusu", art: <ShoeArt />, text: "Kapaklı, köşeleri sağlam ayakkabı ve tekstil kutusu. Markanıza özel baskıyla seri üretim.", specs: ["Baskılı kapak", "Etiket alanı", "Seri üretim"] },
+  { id: "kilitli", name: "Kilitli kutu", art: <LockArt />, text: "Otomatik kilitli dibi tek hareketle kurulan, bant gerektirmeyen kutu. Yoğun paketleme hatları için.", specs: ["Otomatik kilitli dip", "Hızlı kurulum", "Bantsız"] },
   { id: "pizza", name: "Pizza kutusu", art: <PizzaArt />, text: "Gıdayla temasa uygun kâğıttan, buhar delikli pizza kutusu.", specs: ["Gıdaya uygun", "Buhar delikleri", "Farklı çaplar"] },
-  { id: "kosebent", name: "Köşebent", art: <CornerArt />, text: "Palet ve koli köşelerini çember baskısına ve darbeye karşı koruyan karton profil.", specs: ["İstenen boy", "Farklı kalınlıklar", "Geri dönüştürülebilir"] },
-  { id: "ondule", name: "Ondüle", art: <SheetArt />, text: "Sarma, ara katman ve dolgu için rulo ya da tabaka oluklu karton.", specs: ["Rulo ve tabaka", "Farklı dalga tipleri", "Hassas yüzeyler için"] },
+  { id: "kosebent", name: "Karton köşebent", art: <CornerArt />, text: "Palet ve koli köşelerini çember baskısına ve darbeye karşı koruyan karton köşe koruyucu. Palet köşebent olarak istenen boyda üretilir.", specs: ["İstenen boy", "Farklı kalınlıklar", "Geri dönüştürülebilir"] },
+  { id: "ondule", name: "Ondüle karton", art: <SheetArt />, text: "Ondüle karton üreticisi olarak sarma, ara katman ve dolgu için rulo ya da tabaka oluklu mukavvayı toptan sağlıyoruz.", specs: ["Rulo ve tabaka", "Farklı dalga tipleri", "Hassas yüzeyler için"] },
 ];
 
 export default function Products() {
@@ -99,15 +99,15 @@ export default function Products() {
     <section id="urunler" className="products">
       <div className="wrap">
         <header className="section-head">
-          <h2 className="section-title">Ne üretiyoruz</h2>
+          <h2 className="section-title">Koli ve karton kutu çeşitleri</h2>
           <p className="section-lead">
-            Standart koliden ofset baskılı ürün kutusuna, köşebentten ondüleye. Her ürünü ölçü, yük ve
-            sevkiyat koşuluna göre birlikte netleştiriyoruz.
+            Standart koliden ofset baskılı ürün kutusuna, karton köşebentten ondüle kartona. Her ürünü
+            ölçü, yük ve sevkiyat koşuluna göre birlikte netleştiriyoruz.
           </p>
         </header>
       </div>
 
-      <div className="rail" ref={rail} role="list" aria-label="Ürünler">
+      <div className="rail" ref={rail} role="list" aria-label="Koli ve karton kutu çeşitleri">
         {products.map((p) => (
           <article key={p.id} id={p.id} className="pcard" role="listitem">
             <div className="pcard__art">{p.art}</div>

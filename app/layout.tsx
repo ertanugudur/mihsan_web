@@ -26,18 +26,39 @@ const cinea = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
-  title: "Mihsan Ambalaj | Karton kutu, köşebent ve ondüle",
+  title: "Koli ve Karton Kutu İmalatı | Mihsan Ambalaj",
+  applicationName: "Mihsan Ambalaj",
+  keywords: [
+    "koli imalatı",
+    "karton kutu imalatı",
+    "koli üreticisi",
+    "özel ölçü koli",
+    "baskılı koli",
+    "logolu koli",
+    "karton köşebent",
+    "palet köşebent",
+    "ondüle karton üreticisi",
+    "ondüle karton toptan",
+    "oluklu mukavva kutu",
+    "çift oluklu koli",
+    "koli fiyat teklifi",
+  ],
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   ...(site.googleVerification ? { verification: { google: site.googleVerification } } : {}),
   description: site.description,
   openGraph: {
-    title: "Mihsan Ambalaj",
+    title: "Koli ve Karton Kutu İmalatı | Mihsan Ambalaj",
     description: site.description,
     locale: "tr_TR",
     url: "/",
     siteName: "Mihsan Ambalaj",
     type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Koli ve Karton Kutu İmalatı | Mihsan Ambalaj",
+    description: site.description,
   },
 };
 
